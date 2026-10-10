@@ -1,0 +1,3 @@
+from app.extraction.extractor import extract_claims
+
+__all__ = ["extract_claims"]
