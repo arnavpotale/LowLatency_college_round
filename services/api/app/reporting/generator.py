@@ -210,4 +210,16 @@ def generate_audit_markdown_report(audit: AuditResponse) -> str:
                 lines.append(f"  - *Recommendation:* {sf.recommendation.strip()}")
         lines.append("")
 
+    if audit.evidence:
+        lines.extend([
+            "---",
+            "## Referenced Evidence Passages",
+        ])
+        for ev in audit.evidence:
+            s_off = getattr(ev, 'start_offset', None) if getattr(ev, 'start_offset', None) is not None else getattr(ev, 'start_char', None)
+            e_off = getattr(ev, 'end_offset', None) if getattr(ev, 'end_offset', None) is not None else getattr(ev, 'end_char', None)
+            loc = f" (chars {s_off}-{e_off})" if s_off is not None and e_off is not None else ""
+            lines.append(f"- **[{ev.evidence_id}]** (Source: {format_inline_code(ev.source_name)}{loc}): \"{ev.text.strip()}\"")
+        lines.append("")
+
     return "\n".join(lines).strip() + "\n"
