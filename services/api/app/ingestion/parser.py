@@ -1,11 +1,36 @@
 import os
 import re
+import zipfile
+import xml.etree.ElementTree as ET
 from typing import Tuple
+
+
+def sanitize_filename(filename: str) -> str:
+    """
+    Sanitizes an uploaded filename to prevent directory traversal attacks
+    and filesystem incompatibilities.
+    """
+    if not filename:
+        return "source_document.txt"
+
+    # Strip any directory path components
+    basename = os.path.basename(filename.replace("\\", "/"))
+
+    # Replace illegal/unsafe characters with underscore
+    cleaned = re.sub(r'[<>:"/\\|?*\x00-\x1f]', '_', basename)
+
+    # Strip leading/trailing whitespace, dots, and underscores
+    cleaned = cleaned.strip(". _")
+
+    if not cleaned:
+        return "source_document.txt"
+
+    return cleaned
 
 
 def extract_text_from_file(file_path: str, filename: str) -> Tuple[str, str]:
     """
-    Extracts plain text from an uploaded document (.txt, .md, .pdf).
+    Extracts plain text from an uploaded document (.txt, .md, .pdf, .docx).
     Preserves page and section markers, line structures, and handles encodings
     and corrupted/empty files gracefully.
     
@@ -32,6 +57,12 @@ def extract_text_from_file(file_path: str, filename: str) -> Tuple[str, str]:
             text = _format_markdown_sections(text)
 
         return text, ext
+
+    elif ext == "docx":
+        text = _read_docx_file(file_path, filename)
+        if not text or not text.strip():
+            raise ValueError(f"Word document '{filename}' contains no extractable text.")
+        return text, "docx"
 
     elif ext == "pdf":
         text = _read_pdf_file(file_path, filename)
@@ -76,6 +107,41 @@ def _format_markdown_sections(text: str) -> str:
     return "".join(formatted_lines)
 
 
+def _read_docx_file(file_path: str, filename: str) -> str:
+    """
+    Extracts text from a .docx file using python-docx if available,
+    falling back to standard library zipfile XML parsing.
+    """
+    try:
+        import docx
+        doc = docx.Document(file_path)
+        paragraphs = [p.text.strip() for p in doc.paragraphs if p.text.strip()]
+        for table in doc.tables:
+            for row in table.rows:
+                row_text = " | ".join(cell.text.strip() for cell in row.cells if cell.text.strip())
+                if row_text:
+                    paragraphs.append(row_text)
+        return "\n\n".join(paragraphs)
+    except Exception:
+        # Fallback to standard library zipfile XML parsing if python-docx is not present or fails
+        try:
+            with zipfile.ZipFile(file_path, "r") as z:
+                xml_content = z.read("word/document.xml")
+            tree = ET.fromstring(xml_content)
+            paragraphs = []
+            for p in tree.iter("{http://schemas.openxmlformats.org/wordprocessingml/2006/main}p"):
+                texts = [
+                    node.text for node in p.iter("{http://schemas.openxmlformats.org/wordprocessingml/2006/main}t")
+                    if node.text
+                ]
+                p_str = "".join(texts).strip()
+                if p_str:
+                    paragraphs.append(p_str)
+            return "\n\n".join(paragraphs)
+        except Exception as e:
+            raise ValueError(f"Failed to extract text from DOCX file '{filename}': {str(e)}")
+
+
 def _read_pdf_file(file_path: str, filename: str) -> str:
     """Extracts text from a PDF file page by page using PyMuPDF (fitz)."""
     try:
@@ -114,4 +180,5 @@ def _read_pdf_file(file_path: str, filename: str) -> str:
         return ""
 
     return "\n\n".join(pages)
+
 
