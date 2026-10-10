@@ -1,7 +1,12 @@
 from datetime import datetime, timezone
 import pytest
 
-from app.reporting.generator import generate_audit_markdown_report, format_inline_code
+from app.reporting.generator import (
+    generate_audit_markdown_report,
+    format_inline_code,
+    get_evidence_relationship,
+    format_location_string,
+)
 from app.schemas import (
     AuditResponse,
     AuditStatus,
@@ -151,15 +156,19 @@ def test_complete_audit_report_generation(complete_audit):
     assert "## Detailed Claim Findings" in report
     assert "### Claim 1: [SUPPORTED]" in report
     assert "The standard dosage is 25mg daily" in report
+    assert "**Original Machine Verdict:** `supported`" in report
     assert "**Confidence:** 98%" in report
     assert "**Character Offset:** [0:34]" in report
     assert "Protocol explicitly confirms standard initial dosage is 25mg daily." in report
     assert "**Source:** `clinical_protocol.pdf` (Page 4, Section 3.2) | *Relevance:* 94%" in report
+    assert "[Referenced Evidence]" in report
     assert "Standard dosage recommendation: 25mg daily, maximum recommended dose is 50mg daily under supervision." in report
 
     assert "### Claim 2: [CONTRADICTED]" in report
     assert "patients may safely take up to 100mg" in report
+    assert "**Original Machine Verdict:** `contradicted`" in report
     assert "**Confidence:** 95%" in report
+    assert "[Referenced Evidence]" in report
 
     # 6. Consistency Findings
     assert "## Consistency Findings" in report
@@ -171,6 +180,15 @@ def test_complete_audit_report_generation(complete_audit):
     assert "**Harmful Advice** [CRITICAL]: Exceeding maximum dosage by 2x poses acute toxicity hazards." in report
     assert "*Recommendation:* Consult a licensed physician; do not exceed 50mg maximum threshold." in report
 
+    # 8. Referenced Evidence Passages
+    assert "## Referenced Evidence Passages" in report
+    assert "- **[ev-1]** (Source: `clinical_protocol.pdf`):" in report
+
+    # 9. Audit Limitations & Review Status
+    assert "## Audit Limitations & Verification Scope" in report
+    assert "Human Review Status:" in report
+    assert "human_verdict" in report
+
 
 def test_live_mode_report(complete_audit):
     complete_audit.is_mock = False
@@ -178,6 +196,7 @@ def test_live_mode_report(complete_audit):
 
     assert "**Mode:** LIVE AI VERIFICATION" in report
     assert "MOCK SIMULATION NOTICE" not in report
+    assert "Non-simulation mode reported (`is_mock=False`)" in report
 
 
 def test_empty_audit_report(base_timestamps):
@@ -213,6 +232,8 @@ def test_empty_audit_report(base_timestamps):
     assert "Executive summary metrics not available for this session." in report
     assert "## Consistency Findings" not in report
     assert "## Safety & Liability Warnings" not in report
+    assert "## Referenced Evidence Passages" not in report
+    assert "## Audit Limitations & Verification Scope" in report
 
 
 def test_missing_and_orphaned_evidence(base_timestamps):
@@ -245,7 +266,7 @@ def test_missing_and_orphaned_evidence(base_timestamps):
                 evidence_ids=[],
             ),
         ],
-        evidence=[],  # No evidence in catalog
+        evidence=[],
         verdicts={"unsupported": 1, "inconclusive": 1},
         consistency_findings=[],
         safety_findings=[],
@@ -265,6 +286,347 @@ def test_missing_and_orphaned_evidence(base_timestamps):
     assert "**Total Claims Audited:** 2" in report
     assert "Inconclusive: 1" in report
     assert "Unsupported: 1" in report
+    # Limitations section flags citation integrity
+    assert "Citation Integrity Alert:" in report
+
+
+def test_evidence_referencing_source_absent_from_audit(base_timestamps):
+    created, completed = base_timestamps
+    audit = AuditResponse(
+        audit_id="audit-absent-src",
+        status=AuditStatus.COMPLETED,
+        title="Absent Source Grounding Test",
+        original_answer="Claim citing unattached source document.",
+        sources=[
+            Source(
+                source_id="src-actual-1",
+                filename="actual_upload.pdf",
+                file_type="pdf",
+                char_count=500,
+                uploaded_at=created,
+                content_snippet="Actual content",
+            )
+        ],
+        claims=[
+            Claim(
+                claim_id="cl-1",
+                claim_text="Claim citing unattached source document.",
+                start_offset=0,
+                end_offset=40,
+                verdict=VerdictCategory.SUPPORTED,
+                explanation="Cited chunk references a deleted or phantom source_id.",
+                confidence=0.80,
+                evidence_ids=["ev-ghost"],
+            )
+        ],
+        evidence=[
+            Evidence(
+                evidence_id="ev-ghost",
+                source_id="src-phantom-999",  # NOT in audit.sources!
+                source_name="ghost_document.pdf",
+                text="Some ghost excerpt not tied to actual uploads.",
+                page_or_section="Page 99",
+                relevance_score=0.75,
+            ),
+            Evidence(
+                evidence_id="ev-uncited-ghost",
+                source_id="src-phantom-888",  # NOT in audit.sources and NOT cited by any claim!
+                source_name="phantom_uncited.pdf",
+                text="Uncited excerpt referencing missing source.",
+                page_or_section="Page 1",
+                relevance_score=0.60,
+            ),
+        ],
+        verdicts={"supported": 1},
+        consistency_findings=[],
+        safety_findings=[],
+        summary=None,
+        is_mock=False,
+        created_at=created,
+        completed_at=completed,
+    )
+
+    report = generate_audit_markdown_report(audit)
+
+    # Claim evidence citation clearly flags unverified source document
+    assert "[WARNING: Unverified Source Document]" in report
+    assert "**Source:** `ghost_document.pdf` (Page 99) [WARNING: Unverified Source Document]" in report
+
+    # Referenced evidence passage section also flags both unverified sources (cited and uncited)
+    assert "- **[ev-ghost]** (Source: `ghost_document.pdf` [WARNING: Unverified Source Document]):" in report
+    assert "- **[ev-uncited-ghost]** (Source: `phantom_uncited.pdf` [WARNING: Unverified Source Document]):" in report
+
+    # Limitations section alerts on source provenance with exact count of absent source records
+    assert "**Source Provenance Alert:** 2 evidence record(s) reference document identifiers not present in the audit's attached source list." in report
+
+
+def test_evidence_records_when_no_attached_source_documents(base_timestamps):
+    created, completed = base_timestamps
+    audit = AuditResponse(
+        audit_id="audit-no-sources",
+        status=AuditStatus.COMPLETED,
+        title="No Attached Sources Test",
+        original_answer="Answer with evidence but no source documents attached.",
+        sources=[],  # Empty sources attached to audit
+        claims=[
+            Claim(
+                claim_id="cl-1",
+                claim_text="Answer with evidence but no source documents attached.",
+                start_offset=0,
+                end_offset=56,
+                verdict=VerdictCategory.SUPPORTED,
+                explanation="Claim references evidence record.",
+                confidence=0.85,
+                evidence_ids=["ev-orphan-src"],
+            )
+        ],
+        evidence=[
+            Evidence(
+                evidence_id="ev-orphan-src",
+                source_id="src-unattached-1",
+                source_name="detached_document.pdf",
+                text="Detached evidence text excerpt.",
+                page_or_section="Page 5",
+                relevance_score=0.80,
+            )
+        ],
+        verdicts={"supported": 1},
+        consistency_findings=[],
+        safety_findings=[],
+        summary=None,
+        is_mock=False,
+        created_at=created,
+        completed_at=completed,
+    )
+
+    report = generate_audit_markdown_report(audit)
+
+    # 1. Source documents section indicates no sources attached
+    assert "_No source documents were attached to this audit._" in report
+
+    # 2. Claim evidence citation flags that no source documents are attached
+    assert "[WARNING: No Attached Source Documents]" in report
+    assert "**Source:** `detached_document.pdf` (Page 5) [WARNING: No Attached Source Documents]" in report
+
+    # 3. Referenced evidence passage also flags no attached source documents
+    assert "- **[ev-orphan-src]** (Source: `detached_document.pdf` [WARNING: No Attached Source Documents]):" in report
+
+    # 4. Source provenance alert in limitations reflects the evidence record with no attached sources
+    assert "**Source Provenance Alert:** 1 evidence record(s) reference document identifiers not present in the audit's attached source list." in report
+
+
+def test_character_offsets_and_source_locations(base_timestamps):
+    created, completed = base_timestamps
+    audit = AuditResponse(
+        audit_id="audit-offsets",
+        status=AuditStatus.COMPLETED,
+        title="Offsets Test",
+        original_answer="Testing character offsets in report.",
+        sources=[
+            Source(
+                source_id="src-1",
+                filename="spec.pdf",
+                file_type="pdf",
+                char_count=1000,
+                uploaded_at=created,
+                content_snippet="Spec text",
+            )
+        ],
+        claims=[
+            Claim(
+                claim_id="cl-1",
+                claim_text="Testing character offsets in report.",
+                start_offset=0,
+                end_offset=35,
+                verdict=VerdictCategory.SUPPORTED,
+                explanation="Grounded with exact character bounds.",
+                confidence=0.92,
+                evidence_ids=["ev-offset"],
+            )
+        ],
+        evidence=[
+            Evidence(
+                evidence_id="ev-offset",
+                source_id="src-1",
+                source_name="spec.pdf",
+                text="The system operates within 25ms threshold.",
+                page_or_section="Section 4.1",
+                relevance_score=0.95,
+                start_offset=120,
+                end_offset=165,
+            )
+        ],
+        verdicts={"supported": 1},
+        consistency_findings=[],
+        safety_findings=[],
+        summary=None,
+        is_mock=False,
+        created_at=created,
+        completed_at=completed,
+    )
+
+    report = generate_audit_markdown_report(audit)
+
+    # Location string combines page/section and char offsets
+    assert "(Section 4.1, chars 120-165)" in report
+    assert "**Source:** `spec.pdf` (Section 4.1, chars 120-165) | *Relevance:* 95%" in report
+
+
+def test_explicit_supporting_and_contradicting_evidence(base_timestamps):
+    created, completed = base_timestamps
+    ev_sup = Evidence(
+        evidence_id="ev-sup",
+        source_id="src-1",
+        source_name="trial_data.pdf",
+        text="Dosage 25mg is well tolerated.",
+        page_or_section="Table 1",
+        relevance_score=0.91,
+    )
+    ev_contra = Evidence(
+        evidence_id="ev-contra",
+        source_id="src-1",
+        source_name="trial_data.pdf",
+        text="Dosage exceeding 50mg leads to toxicity.",
+        page_or_section="Table 2",
+        relevance_score=0.89,
+    )
+
+    audit = AuditResponse(
+        audit_id="audit-explicit-rel",
+        status=AuditStatus.COMPLETED,
+        title="Explicit Evidence Relationship Audit",
+        original_answer="Dosage study evaluation with two distinct claims.",
+        sources=[
+            Source(
+                source_id="src-1",
+                filename="trial_data.pdf",
+                file_type="pdf",
+                char_count=2000,
+                uploaded_at=created,
+                content_snippet="Trial data summary",
+            )
+        ],
+        claims=[
+            Claim(
+                claim_id="cl-sup",
+                claim_text="Dosage 25mg is well tolerated.",
+                start_offset=0,
+                end_offset=30,
+                verdict=VerdictCategory.SUPPORTED,
+                explanation="Trial protocol confirms 25mg tolerance.",
+                confidence=0.95,
+                evidence_ids=["ev-sup"],
+            ),
+            Claim(
+                claim_id="cl-contra",
+                claim_text="Dosage exceeding 50mg leads to toxicity.",
+                start_offset=31,
+                end_offset=71,
+                verdict=VerdictCategory.CONTRADICTED,
+                explanation="Contradicted by safety threshold records.",
+                confidence=0.90,
+                evidence_ids=["ev-contra"],
+            ),
+        ],
+        evidence=[ev_sup, ev_contra],
+        verdicts={"supported": 1, "contradicted": 1},
+        consistency_findings=[],
+        safety_findings=[],
+        summary=None,
+        is_mock=False,
+        created_at=created,
+        completed_at=completed,
+    )
+
+    report = generate_audit_markdown_report(audit)
+
+    # 1. With current schema lacking explicit relationship metadata, evidence receives neutral labels
+    # even when claim verdicts are SUPPORTED or CONTRADICTED
+    assert "[Referenced Evidence] **Source:** `trial_data.pdf` (Table 1)" in report
+    assert "[Referenced Evidence] **Source:** `trial_data.pdf` (Table 2)" in report
+    assert "[Supporting Evidence]" not in report
+    assert "[Contradicting Evidence]" not in report
+
+    # 2. When explicit structured relationship metadata is present on evidence, labels reflect it
+    object.__setattr__(ev_sup, "relationship", "supporting")
+    object.__setattr__(ev_contra, "relationship", "contradicting")
+
+    report_with_meta = generate_audit_markdown_report(audit)
+    assert "[Supporting Evidence] **Source:** `trial_data.pdf` (Table 1)" in report_with_meta
+    assert "[Contradicting Evidence] **Source:** `trial_data.pdf` (Table 2)" in report_with_meta
+
+    # 3. Explicit metadata takes precedence independently of claim machine verdicts
+    object.__setattr__(ev_sup, "relationship", "contradicting")
+    report_override = generate_audit_markdown_report(audit)
+    assert "[Contradicting Evidence] **Source:** `trial_data.pdf` (Table 1)" in report_override
+
+
+def test_preservation_of_original_machine_verdict(base_timestamps):
+    created, completed = base_timestamps
+    audit = AuditResponse(
+        audit_id="audit-verdict-preserve",
+        status=AuditStatus.COMPLETED,
+        title="Verdict Preservation Test",
+        original_answer="A contradicted assertion.",
+        sources=[],
+        claims=[
+            Claim(
+                claim_id="cl-1",
+                claim_text="A contradicted assertion.",
+                start_offset=0,
+                end_offset=25,
+                verdict=VerdictCategory.CONTRADICTED,
+                explanation="Refuted by evidence.",
+                confidence=0.99,
+                evidence_ids=[],
+            )
+        ],
+        evidence=[],
+        verdicts={"contradicted": 1},
+        consistency_findings=[],
+        safety_findings=[],
+        summary=None,
+        is_mock=False,
+        created_at=created,
+        completed_at=completed,
+    )
+
+    report = generate_audit_markdown_report(audit)
+
+    # Asserts original machine verdict is preserved with exact field value
+    assert "### Claim 1: [CONTRADICTED]" in report
+    assert "**Original Machine Verdict:** `contradicted`" in report
+
+
+def test_missing_structured_human_review_documented(base_timestamps):
+    created, completed = base_timestamps
+    audit = AuditResponse(
+        audit_id="audit-human-review-limitation",
+        status=AuditStatus.COMPLETED,
+        title="Human Review Limitation Test",
+        original_answer="Automated pipeline output.",
+        sources=[],
+        claims=[],
+        evidence=[],
+        verdicts={},
+        consistency_findings=[],
+        safety_findings=[],
+        summary=None,
+        is_mock=False,
+        created_at=created,
+        completed_at=completed,
+    )
+
+    report = generate_audit_markdown_report(audit)
+
+    # Asserts honest representation of human review status and required fields
+    assert "Human Review Status:" in report
+    assert "The current schema contract does not capture structured human-review decisions" in report
+    assert "Whether human verification or clinical oversight has occurred cannot be determined" in report
+    assert "human_verdict" in report
+    assert "reviewer_notes" in report
+    assert "review_status" in report
+    assert "review_history" in report
 
 
 def test_deterministic_output(complete_audit):
