@@ -46,6 +46,7 @@ class AuditModel(Base):
             consistency_findings=parsed_results.get("consistency_findings", []),
             safety_findings=parsed_results.get("safety_findings", []),
             summary=parsed_results.get("summary"),
+            conflict_map=parsed_results.get("conflict_map", []),
             report_reference=self.report_reference,
             is_mock=self.is_mock,
             created_at=self.created_at,

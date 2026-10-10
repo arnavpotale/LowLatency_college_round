@@ -1,42 +1,39 @@
 import React from 'react';
-import { AuditSummary, ConsistencyFinding, SafetyFinding } from '../../types';
-import { ShieldAlert, ShieldCheck, AlertTriangle, AlertCircle, Sparkles } from 'lucide-react';
+import { AuditSummary, ConsistencyFinding, SafetyFinding, ConflictDetail } from '../../types';
+import { ShieldAlert, ShieldCheck, AlertTriangle, AlertCircle, Info, GitFork } from 'lucide-react';
 
 interface AuditSummaryCardProps {
   summary: AuditSummary;
   consistencyFindings: ConsistencyFinding[];
   safetyFindings: SafetyFinding[];
+  conflicts?: ConflictDetail[];
   isMock: boolean;
+  onOpenAdversarialLab?: () => void;
 }
 
 export const AuditSummaryCard: React.FC<AuditSummaryCardProps> = ({
   summary,
   consistencyFindings,
   safetyFindings,
+  conflicts = [],
   isMock
 }) => {
-  const getScoreColor = (score: number) => {
-    if (score >= 80) return 'text-emerald-400 stroke-emerald-400';
-    if (score >= 50) return 'text-amber-400 stroke-amber-400';
-    return 'text-rose-400 stroke-rose-400';
-  };
-
   const getRiskBadge = (risk: string) => {
     switch (risk.toLowerCase()) {
       case 'high':
         return {
-          bg: 'bg-rose-500/10 border-rose-500/30 text-rose-400',
-          icon: <ShieldAlert className="w-4 h-4 text-rose-400" />
+          bg: 'bg-rose-950/70 border-rose-800 text-rose-300',
+          icon: <ShieldAlert className="w-3.5 h-3.5 text-rose-400" />
         };
       case 'medium':
         return {
-          bg: 'bg-amber-500/10 border-amber-500/30 text-amber-400',
-          icon: <AlertTriangle className="w-4 h-4 text-amber-400" />
+          bg: 'bg-amber-950/70 border-amber-800 text-amber-300',
+          icon: <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
         };
       default:
         return {
-          bg: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400',
-          icon: <ShieldCheck className="w-4 h-4 text-emerald-400" />
+          bg: 'bg-emerald-950/70 border-emerald-800 text-emerald-300',
+          icon: <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
         };
     }
   };
@@ -44,110 +41,118 @@ export const AuditSummaryCard: React.FC<AuditSummaryCardProps> = ({
   const riskBadge = getRiskBadge(summary.risk_level);
 
   return (
-    <div className="bg-slate-900/80 rounded-xl border border-slate-800 p-5 flex flex-col gap-5">
+    <div className="bg-[#15181e] rounded-lg border border-zinc-800 p-4 flex flex-col gap-3">
       {/* Simulation Banner Notice */}
       {isMock && (
-        <div className="px-3.5 py-2 rounded-lg bg-indigo-950/40 border border-indigo-500/30 flex items-center justify-between text-xs text-indigo-300">
+        <div className="px-3 py-1.5 rounded bg-zinc-900 border border-zinc-700/70 flex items-center justify-between text-xs text-zinc-300">
           <div className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-indigo-400 shrink-0" />
+            <Info className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
             <span>
-              <strong>Simulation Mode:</strong> Findings generated via mock verification pipeline adhering to the final shared schema contract.
+              <strong className="text-zinc-200">Demonstration Mode:</strong> Findings generated via local verified test fixture. Connect live API for dynamic multi-document parsing.
             </span>
           </div>
-          <span className="font-mono text-[10px] uppercase tracking-wider bg-indigo-500/20 px-2 py-0.5 rounded">
-            Mock Active
+          <span className="font-mono text-[10px] uppercase tracking-wider bg-zinc-800 px-2 py-0.5 rounded text-zinc-400 border border-zinc-700">
+            MOCK FIXTURE
           </span>
         </div>
       )}
 
-      {/* Top metrics row */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* Trust Score */}
-        <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 flex items-center gap-4">
-          <div className="relative w-16 h-16 flex items-center justify-center shrink-0">
-            <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
-              <path
-                className="text-slate-800"
-                strokeWidth="3.5"
-                stroke="currentColor"
-                fill="none"
-                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-              />
-              <path
-                className={getScoreColor(summary.trust_score)}
-                strokeDasharray={`${summary.trust_score}, 100`}
-                strokeWidth="3.5"
-                strokeLinecap="round"
-                stroke="currentColor"
-                fill="none"
-                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-              />
-            </svg>
-            <span className={`absolute text-sm font-bold font-mono ${getScoreColor(summary.trust_score)}`}>
-              {Math.round(summary.trust_score)}%
+      {/* Top metrics bar */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
+        {/* Metric 1: Trust Score */}
+        <div className="p-3 rounded bg-[#171a22] border border-zinc-800 flex flex-col justify-between">
+          <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500">
+            Trust Index
+          </span>
+          <div className="flex items-baseline gap-1 mt-1">
+            <span className="text-2xl font-bold font-mono text-zinc-100">
+              {Math.round(summary.trust_score)}
+            </span>
+            <span className="text-xs text-zinc-500 font-mono">/100</span>
+          </div>
+        </div>
+
+        {/* Metric 2: Risk Assessment */}
+        <div className="p-3 rounded bg-[#171a22] border border-zinc-800 flex flex-col justify-between">
+          <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500">
+            Risk Profile
+          </span>
+          <div className="mt-1">
+            <span
+              className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-semibold border uppercase tracking-wider ${riskBadge.bg}`}
+            >
+              {riskBadge.icon}
+              {summary.risk_level}
             </span>
           </div>
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-              Audit Trust Score
-            </p>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Penalty-weighted evidence alignment
-            </p>
-          </div>
         </div>
 
-        {/* Risk Assessment */}
-        <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 flex items-center justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-              Overall Risk Level
-            </p>
-            <div className="mt-1 flex items-center gap-2">
-              <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border uppercase tracking-wider ${riskBadge.bg}`}>
-                {riskBadge.icon}
-                {summary.risk_level} Risk
-              </span>
-            </div>
-          </div>
-          <div className="text-right">
-            <p className="text-2xl font-bold font-mono text-white">
+        {/* Metric 3: Assertions Audited */}
+        <div className="p-3 rounded bg-[#171a22] border border-zinc-800 flex flex-col justify-between">
+          <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500">
+            Assertions
+          </span>
+          <div className="flex items-baseline gap-1.5 mt-1">
+            <span className="text-2xl font-bold font-mono text-zinc-100">
               {summary.total_claims}
-            </p>
-            <p className="text-[11px] text-slate-400">Claims Evaluated</p>
+            </span>
+            <span className="text-xs text-zinc-500">decomposed</span>
           </div>
         </div>
 
-        {/* Multi-category breakdown */}
-        <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 flex flex-col justify-center gap-2">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-            Verdict Distribution
-          </p>
-          <div className="grid grid-cols-3 gap-1.5 text-center text-[11px]">
-            <div className="p-1 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-              <span className="font-bold">{summary.supported_claims}</span> Sup
-            </div>
-            <div className="p-1 rounded bg-rose-500/10 text-rose-400 border border-rose-500/20">
-              <span className="font-bold">{summary.contradicted_claims}</span> Cont
-            </div>
-            <div className="p-1 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">
-              <span className="font-bold">{summary.unsupported_claims}</span> Unsup
-            </div>
+        {/* Metric 4: Supported vs Contradicted */}
+        <div className="p-3 rounded bg-[#171a22] border border-zinc-800 flex flex-col justify-between">
+          <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500">
+            Grounding Status
+          </span>
+          <div className="flex items-center gap-2 mt-1 font-mono text-xs">
+            <span className="text-emerald-400 font-bold">{summary.supported_claims} Sup</span>
+            <span className="text-zinc-600">&bull;</span>
+            <span className="text-rose-400 font-bold">{summary.contradicted_claims} Cont</span>
+          </div>
+        </div>
+
+        {/* Metric 5: Unsupported / Ambiguous */}
+        <div className="p-3 rounded bg-[#171a22] border border-zinc-800 flex flex-col justify-between">
+          <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500">
+            Unresolved
+          </span>
+          <div className="flex items-center gap-2 mt-1 font-mono text-xs">
+            <span className="text-amber-400 font-bold">{summary.unsupported_claims} Unsup</span>
+            <span className="text-zinc-600">&bull;</span>
+            <span className="text-zinc-400 font-bold">{summary.ambiguous_claims || 0} Amb</span>
+          </div>
+        </div>
+
+        {/* Metric 6: Inter-source Conflicts */}
+        <div className="p-3 rounded bg-[#171a22] border border-zinc-800 flex flex-col justify-between">
+          <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500">
+            Evidence Conflicts
+          </span>
+          <div className="flex items-center gap-1.5 mt-1">
+            {conflicts.length > 0 ? (
+              <span className="inline-flex items-center gap-1 text-xs font-mono font-bold text-amber-300">
+                <GitFork className="w-3.5 h-3.5 text-amber-400" />
+                {conflicts.length} Detected
+              </span>
+            ) : (
+              <span className="text-xs font-mono text-zinc-400">None detected</span>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Findings Warnings (if any) */}
+      {/* Advisory warnings if present */}
       {(consistencyFindings.length > 0 || safetyFindings.length > 0) && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 pt-1">
           {consistencyFindings.length > 0 && (
-            <div className="p-3.5 rounded-lg bg-amber-500/5 border border-amber-500/20 text-xs flex items-start gap-2.5">
+            <div className="p-2.5 rounded bg-amber-950/30 border border-amber-800/60 text-xs flex items-start gap-2">
               <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
               <div>
                 <p className="font-semibold text-amber-300">
                   Consistency Finding ({consistencyFindings.length})
                 </p>
-                <p className="text-slate-300 mt-0.5">
+                <p className="text-zinc-300 text-[11px] mt-0.5">
                   {consistencyFindings[0].description}
                 </p>
               </div>
@@ -155,13 +160,13 @@ export const AuditSummaryCard: React.FC<AuditSummaryCardProps> = ({
           )}
 
           {safetyFindings.length > 0 && (
-            <div className="p-3.5 rounded-lg bg-rose-500/5 border border-rose-500/20 text-xs flex items-start gap-2.5">
+            <div className="p-2.5 rounded bg-rose-950/30 border border-rose-800/60 text-xs flex items-start gap-2">
               <ShieldAlert className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
               <div>
                 <p className="font-semibold text-rose-300">
-                  Safety & Liability Advisory ({safetyFindings.length})
+                  Safety Advisory ({safetyFindings.length})
                 </p>
-                <p className="text-slate-300 mt-0.5">
+                <p className="text-zinc-300 text-[11px] mt-0.5">
                   {safetyFindings[0].description}
                 </p>
               </div>
@@ -170,10 +175,10 @@ export const AuditSummaryCard: React.FC<AuditSummaryCardProps> = ({
         </div>
       )}
 
-      {/* High-level takeaway */}
+      {/* Key Takeaway */}
       {summary.key_takeaway && (
-        <div className="p-3 rounded-lg bg-slate-950 text-xs text-slate-300 border-l-4 border-indigo-500 italic">
-          "{summary.key_takeaway}"
+        <div className="p-2.5 rounded bg-[#171a22] text-xs text-zinc-300 border-l-2 border-zinc-400 italic font-serif">
+          &ldquo;{summary.key_takeaway}&rdquo;
         </div>
       )}
     </div>

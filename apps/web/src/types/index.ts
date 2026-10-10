@@ -35,6 +35,58 @@ export interface Evidence {
   end_char?: number;
 }
 
+export interface PairResult {
+  evidence_id: string;
+  relation: 'entails' | 'contradicts' | 'neutral' | 'insufficient' | string;
+  score: number;
+  rationale: string;
+  contradiction_detail?: string;
+  numerical_finding?: string;
+  source_name?: string;
+  page_or_section?: string;
+  excerpt?: string;
+}
+
+export interface ConflictDetail {
+  conflict_id: string;
+  conflict_type: 'direct_contradiction' | 'divergent_metrics' | 'scope_mismatch' | string;
+  description: string;
+  claim_id?: string;
+  supporting_evidence_id?: string;
+  supporting_source_name?: string;
+  supporting_location?: string;
+  supporting_text?: string;
+  contradicting_evidence_id?: string;
+  contradicting_source_name?: string;
+  contradicting_location?: string;
+  contradicting_text?: string;
+}
+
+export interface ClaimAutopsy {
+  problematic_phrase?: string;
+  issue_type:
+    | 'quantity_mismatch'
+    | 'rate_frequency'
+    | 'polarity_negation'
+    | 'missing_evidence'
+    | 'verified_match'
+    | 'conflicting_sources'
+    | 'insufficient_context'
+    | 'direct_contradiction'
+    | string;
+  claim_elements: string[];
+  evidence_elements: string[];
+  diagnosis: string;
+}
+
+export interface HumanReview {
+  action: 'accepted' | 'overridden_supported' | 'override_supported' | 'overridden_contradicted' | 'override_contradicted' | 'overridden_unsupported' | 'override_unsupported' | 'deferred' | string;
+  notes: string;
+  reviewer: string;
+  reviewed_at: string;
+  original_verdict: VerdictCategory;
+}
+
 export interface Claim {
   claim_id: string;
   claim_text: string;
@@ -46,6 +98,10 @@ export interface Claim {
   explanation: string;
   confidence: number;
   evidence_ids: string[];
+  evaluation_trail?: PairResult[];
+  conflict?: ConflictDetail;
+  autopsy?: ClaimAutopsy;
+  human_review?: HumanReview;
 }
 
 export interface ConsistencyFinding {
@@ -88,10 +144,40 @@ export interface AuditResponse {
   consistency_findings: ConsistencyFinding[];
   safety_findings: SafetyFinding[];
   summary?: AuditSummary;
+  conflict_map?: ConflictDetail[];
   report_reference?: string;
   is_mock: boolean;
   created_at: string;
   completed_at?: string;
+}
+
+export interface AdversarialTestCase {
+  id: string;
+  title: string;
+  category: string;
+  description: string;
+  adversarial_mechanism: string;
+  source_name: string;
+  claim_text: string;
+  expected_verdict: string;
+}
+
+export interface AdversarialCaseResult extends AdversarialTestCase {
+  actual_verdict: string;
+  passed: boolean;
+  latency_ms: number;
+  explanation: string;
+  autopsy?: ClaimAutopsy;
+  conflict?: ConflictDetail;
+}
+
+export interface AdversarialRunResult {
+  total_cases: number;
+  passed_cases: number;
+  failed_cases: number;
+  accuracy_pct: number;
+  total_latency_ms: number;
+  test_cases: AdversarialCaseResult[];
 }
 
 export interface HealthResponse {
