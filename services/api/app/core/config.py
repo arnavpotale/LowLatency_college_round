@@ -17,7 +17,7 @@ class Settings(BaseSettings):
 
     upload_dir: str = "./uploads"
     max_upload_size_bytes: int = 10 * 1024 * 1024  # 10 MB
-    allowed_extensions: str = "pdf,txt,md"
+    allowed_extensions: str = "pdf,txt,md,docx"
 
     enable_mock_verification: bool = True
     verification_provider: str = "deterministic"  # options: "deterministic", "mock", "nli", "llm"

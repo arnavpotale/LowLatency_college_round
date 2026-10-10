@@ -72,13 +72,19 @@ class ClaimVerifier:
                 normalized_evidence.append(item)
             elif isinstance(item, dict):
                 ev_id = str(item.get("evidence_id") or f"ev_{idx}_{uuid.uuid4().hex[:6]}")
+                loc_tag = str(item.get("page_or_section", "General"))
+                l_start = item.get("line_start")
+                l_end = item.get("line_end")
+                if l_start and l_end and "lines" not in loc_tag.lower():
+                    loc_tag = f"{loc_tag} (Lines {l_start}-{l_end})"
+
                 normalized_evidence.append(
                     Evidence(
                         evidence_id=ev_id,
                         source_id=str(item.get("source_id", "src_default")),
                         source_name=str(item.get("source_name", "Source Document")),
                         text=str(item.get("text", "")),
-                        page_or_section=str(item.get("page_or_section", "General")),
+                        page_or_section=loc_tag,
                         relevance_score=float(item.get("relevance_score", 0.85))
                     )
                 )
@@ -192,12 +198,18 @@ class VerificationEngine:
                 continue
             chunks = chunk_document(src_text, source_id=src.source_id)
             for i, chunk in enumerate(chunks):
+                loc_tag = chunk.get("page_or_section", f"Chunk {i+1}")
+                l_start = chunk.get("line_start")
+                l_end = chunk.get("line_end")
+                if l_start and l_end and "lines" not in loc_tag.lower():
+                    loc_tag = f"{loc_tag} (Lines {l_start}-{l_end})"
+
                 ev = Evidence(
                     evidence_id=f"ev_{src.source_id[:6]}_{i}",
                     source_id=src.source_id,
                     source_name=src.filename,
                     text=chunk["text"],
-                    page_or_section=chunk.get("page_or_section", f"Chunk {i+1}"),
+                    page_or_section=loc_tag,
                     relevance_score=0.90,
                     start_offset=chunk.get("start_offset"),
                     end_offset=chunk.get("end_offset")
