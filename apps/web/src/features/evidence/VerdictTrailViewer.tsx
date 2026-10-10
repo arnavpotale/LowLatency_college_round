@@ -6,14 +6,17 @@ interface VerdictTrailViewerProps {
   evaluationTrail?: PairResult[];
   evidenceList: Evidence[];
   claimEvidenceIds: string[];
+  activeEvidenceId?: string | null;
+  onSelectEvidence?: (evidenceId: string) => void;
 }
 
 export const VerdictTrailViewer: React.FC<VerdictTrailViewerProps> = ({
   evaluationTrail = [],
   evidenceList,
-  claimEvidenceIds
+  claimEvidenceIds,
+  activeEvidenceId,
+  onSelectEvidence
 }) => {
-  // If evaluationTrail is present, use it; otherwise fallback to linked evidence models
   const hasTrail = evaluationTrail.length > 0;
 
   if (!hasTrail && claimEvidenceIds.length === 0) {
@@ -73,11 +76,17 @@ export const VerdictTrailViewer: React.FC<VerdictTrailViewerProps> = ({
         {hasTrail ? (
           evaluationTrail.map((item, idx) => {
             const relBadge = getRelationBadge(item.relation);
+            const isActive = activeEvidenceId === item.evidence_id;
 
             return (
               <div
                 key={item.evidence_id || idx}
-                className="p-3 rounded-lg border border-zinc-800 bg-zinc-950/80 space-y-2 text-xs"
+                onClick={() => item.evidence_id && onSelectEvidence?.(item.evidence_id)}
+                className={`p-3 rounded-lg border transition text-xs space-y-2 cursor-pointer ${
+                  isActive
+                    ? 'border-zinc-500 bg-zinc-900 ring-1 ring-zinc-500'
+                    : 'border-zinc-800 bg-zinc-950/80 hover:border-zinc-700'
+                }`}
               >
                 {/* Meta row */}
                 <div className="flex items-center justify-between gap-2">
@@ -108,7 +117,7 @@ export const VerdictTrailViewer: React.FC<VerdictTrailViewerProps> = ({
                 {/* Excerpt quote */}
                 {item.excerpt && (
                   <p className="font-serif text-xs text-zinc-300 bg-zinc-900/60 p-2.5 rounded border border-zinc-800/80 italic leading-snug">
-                    "{item.excerpt}"
+                    &ldquo;{item.excerpt}&rdquo;
                   </p>
                 )}
 
@@ -126,20 +135,28 @@ export const VerdictTrailViewer: React.FC<VerdictTrailViewerProps> = ({
           // Fallback to linked evidence excerpts
           evidenceList
             .filter((e) => claimEvidenceIds.includes(e.evidence_id))
-            .map((ev) => (
-              <div
-                key={ev.evidence_id}
-                className="p-3 rounded-lg border border-zinc-800 bg-zinc-950/80 space-y-2 text-xs"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-semibold text-zinc-200">{ev.source_name}</span>
-                  <span className="font-mono text-[10px] text-zinc-400">{ev.page_or_section}</span>
+            .map((ev) => {
+              const isActive = activeEvidenceId === ev.evidence_id;
+              return (
+                <div
+                  key={ev.evidence_id}
+                  onClick={() => onSelectEvidence?.(ev.evidence_id)}
+                  className={`p-3 rounded-lg border transition text-xs space-y-2 cursor-pointer ${
+                    isActive
+                      ? 'border-zinc-500 bg-zinc-900 ring-1 ring-zinc-500'
+                      : 'border-zinc-800 bg-zinc-950/80 hover:border-zinc-700'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-zinc-200">{ev.source_name}</span>
+                    <span className="font-mono text-[10px] text-zinc-400">{ev.page_or_section}</span>
+                  </div>
+                  <p className="font-serif text-xs text-zinc-300 italic bg-zinc-900/60 p-2 rounded">
+                    &ldquo;{ev.text}&rdquo;
+                  </p>
                 </div>
-                <p className="font-serif text-xs text-zinc-300 italic bg-zinc-900/60 p-2 rounded">
-                  "{ev.text}"
-                </p>
-              </div>
-            ))
+              );
+            })
         )}
       </div>
     </div>

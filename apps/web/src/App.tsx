@@ -362,6 +362,9 @@ export const App: React.FC = () => {
                 evidenceList={audit.evidence}
                 allConflicts={audit.conflict_map || []}
                 onSaveReview={handleSaveReview}
+                activeEvidenceId={activeEvidenceId}
+                onSelectEvidence={(id) => setActiveEvidenceId(id)}
+                onJumpToClaim={handleJumpToClaim}
               />
             </div>
           </div>

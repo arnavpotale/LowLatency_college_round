@@ -12,13 +12,19 @@ interface ClaimDossierProps {
   evidenceList: Evidence[];
   allConflicts?: ConflictDetail[];
   onSaveReview: (claimId: string, action: string, notes: string, reviewer: string) => Promise<void>;
+  activeEvidenceId?: string | null;
+  onSelectEvidence?: (evidenceId: string) => void;
+  onJumpToClaim?: (claimId: string) => void;
 }
 
 export const ClaimDossier: React.FC<ClaimDossierProps> = ({
   claim,
   evidenceList,
   allConflicts = [],
-  onSaveReview
+  onSaveReview,
+  activeEvidenceId,
+  onSelectEvidence,
+  onJumpToClaim: _onJumpToClaim
 }) => {
   const [activeTab, setActiveTab] = useState<'autopsy' | 'trail' | 'conflict' | 'review'>('autopsy');
 
@@ -136,6 +142,8 @@ export const ClaimDossier: React.FC<ClaimDossierProps> = ({
             evaluationTrail={claim.evaluation_trail}
             evidenceList={evidenceList}
             claimEvidenceIds={claim.evidence_ids}
+            activeEvidenceId={activeEvidenceId}
+            onSelectEvidence={onSelectEvidence}
           />
         )}
 
