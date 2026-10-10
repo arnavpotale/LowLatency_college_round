@@ -1,6 +1,8 @@
 import os
+import re
 import json
 import uuid
+import logging
 from datetime import datetime
 from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status
@@ -19,9 +21,10 @@ from app.schemas import (
     AuditStatus
 )
 from app.ingestion.parser import extract_text_from_file
-from app.verification import default_verifier
+from app.verification import default_verifier, get_verification_engine, ProviderUnavailableError
 from app.reporting.generator import generate_audit_markdown_report
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/audits", tags=["Audits"])
 
 
@@ -37,7 +40,7 @@ def create_audit(payload: Optional[AuditCreate] = None, db: Session = Depends(ge
         notes=notes,
         status=AuditStatus.CREATED.value,
         original_answer="",
-        is_mock=settings.enable_mock_verification
+        is_mock=settings.is_mock_active
     )
     db.add(audit)
     db.commit()
@@ -65,7 +68,9 @@ async def upload_source(
     os.makedirs(settings.upload_dir, exist_ok=True)
 
     if file is not None and file.filename:
-        filename = file.filename
+        # Sanitize uploaded filename to prevent directory traversal
+        raw_name = os.path.basename(file.filename)
+        filename = re.sub(r'[^a-zA-Z0-9_\.\-]', '_', raw_name)
         ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
         if ext not in settings.allowed_extensions_list:
             raise HTTPException(
@@ -145,8 +150,8 @@ def submit_answer(audit_id: str, payload: AnswerInput, db: Session = Depends(get
 def analyze_audit(audit_id: str, db: Session = Depends(get_db)):
     """
     Trigger the audit verification pipeline.
-    Returns structured claims, verdicts, evidence citations, consistency checks,
-    and safety findings. Clearly marked with is_mock=True in initial milestones.
+    Dispatches to real deterministic verification or LLM assessment when mock mode is disabled,
+    or returns explicit simulation findings when mock mode is enabled.
     """
     audit = db.query(AuditModel).filter(AuditModel.id == audit_id).first()
     if not audit:
@@ -157,8 +162,36 @@ def analyze_audit(audit_id: str, db: Session = Depends(get_db)):
 
     sources = [s.to_schema() for s in audit.sources]
 
-    # Run verification engine (returns mock findings for initial skeleton)
-    findings = default_verifier.verify_audit(audit.original_answer, sources)
+    # Transition to processing state
+    audit.status = AuditStatus.PROCESSING.value
+    db.commit()
+
+    try:
+        engine = get_verification_engine()
+        findings = engine.verify_audit(audit.original_answer, sources)
+    except ProviderUnavailableError as e:
+        # Sanitize error message to prevent token/credential leakage
+        clean_err = re.sub(r'sk-[a-zA-Z0-9_\-]{8,}', 'sk-***', str(e))
+        clean_err = re.sub(r'Bearer\s+[a-zA-Z0-9_\-\.]+', 'Bearer ***', clean_err)
+        audit.status = AuditStatus.FAILED.value
+        audit.results_json = json.dumps({"error": clean_err})
+        audit.completed_at = datetime.utcnow()
+        db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Verification provider failed: {clean_err}"
+        )
+    except Exception as e:
+        logger.exception("Audit analysis failed unexpectedly for audit_id=%s", audit_id)
+        audit.status = AuditStatus.FAILED.value
+        audit.results_json = json.dumps({"error": "Internal audit analysis failure"})
+        audit.completed_at = datetime.utcnow()
+        db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Audit analysis failed due to an internal server error. Please retry."
+        )
+
 
     audit.status = AuditStatus.COMPLETED.value
     audit.results_json = json.dumps(findings)

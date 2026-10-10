@@ -41,6 +41,10 @@ class Evidence(BaseModel):
     text: str = Field(..., description="Exact verifiable excerpt text from the source")
     page_or_section: str = Field(..., description="Location pointer (e.g. 'Page 2', 'Section 4')")
     relevance_score: float = Field(..., ge=0.0, le=1.0, description="Relevance score (0.0 to 1.0)")
+    start_offset: Optional[int] = Field(None, ge=0, description="0-indexed Unicode character start offset in source document")
+    end_offset: Optional[int] = Field(None, ge=0, description="0-indexed Unicode character end offset in source document")
+    start_char: Optional[int] = Field(None, ge=0, description="Alias for start_offset")
+    end_char: Optional[int] = Field(None, ge=0, description="Alias for end_offset")
 
 
 class Claim(BaseModel):

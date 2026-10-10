@@ -29,6 +29,10 @@ export interface Evidence {
   text: string;
   page_or_section: string;
   relevance_score: number;
+  start_offset?: number;
+  end_offset?: number;
+  start_char?: number;
+  end_char?: number;
 }
 
 export interface Claim {
