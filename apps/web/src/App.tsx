@@ -37,6 +37,8 @@ export const App: React.FC = () => {
       setSelectedClaimId(audit.claims[0].claim_id);
       if (audit.claims[0].evidence_ids.length > 0) {
         setActiveEvidenceId(audit.claims[0].evidence_ids[0]);
+      } else {
+        setActiveEvidenceId(null);
       }
     }
   }, [audit.claims, selectedClaimId]);
@@ -46,6 +48,7 @@ export const App: React.FC = () => {
     setAudit(MOCK_INITIAL_AUDIT);
     setSelectedClaimId(MOCK_INITIAL_AUDIT.claims[0]?.claim_id || null);
     setActiveEvidenceId(MOCK_INITIAL_AUDIT.claims[0]?.evidence_ids[0] || null);
+    setRightTab('claims');
   };
 
   // Upload file handler
@@ -76,23 +79,27 @@ export const App: React.FC = () => {
     }
   };
 
-  // Run Audit
-  const handleRunAudit = async (title: string, answerText: string) => {
+    // Run Audit
+     const handleRunAudit = async (title: string, answerText: string) => {
     setIsLoading(true);
     try {
-      // 1. Submit answer
-      await apiClient.submitAnswer(audit.audit_id, answerText);
-      // 2. Trigger analysis
-      const updatedAudit = await apiClient.runAnalysis(audit.audit_id);
+      // 1. Create a new audit in the backend
+      const newAudit = await apiClient.createAudit(title);
+      setAudit(newAudit);
+
+      // 2. Submit the answer using the new audit ID
+      await apiClient.submitAnswer(newAudit.audit_id, answerText);
+
+      // 3. Run the analysis
+      const updatedAudit = await apiClient.runAnalysis(newAudit.audit_id);
+
+      // 4. Update the results
       setAudit({ ...updatedAudit, title });
-      if (updatedAudit.claims.length > 0) {
-        setSelectedClaimId(updatedAudit.claims[0].claim_id);
-        if (updatedAudit.claims[0].evidence_ids.length > 0) {
-          setActiveEvidenceId(updatedAudit.claims[0].evidence_ids[0]);
-        }
-      }
-    } catch (err: any) {
-      console.error("Audit error:", err);
+      setSelectedClaimId(updatedAudit.claims[0]?.claim_id ?? null);
+      setActiveEvidenceId(updatedAudit.claims[0]?.evidence_ids[0] ?? null);
+      setRightTab('claims');
+    } catch (err) {
+      console.error('Audit error:', err);
     } finally {
       setIsLoading(false);
     }
@@ -111,6 +118,8 @@ export const App: React.FC = () => {
     const targetClaim = audit.claims.find((c) => c.claim_id === claimId);
     if (targetClaim && targetClaim.evidence_ids.length > 0) {
       setActiveEvidenceId(targetClaim.evidence_ids[0]);
+    } else {
+      setActiveEvidenceId(null);
     }
   };
 
@@ -118,6 +127,12 @@ export const App: React.FC = () => {
   const handleEvidenceClick = (evidenceId: string) => {
     setActiveEvidenceId(evidenceId);
     setRightTab('evidence');
+  };
+
+  // Bidirectional navigation: jump from Evidence item to Claim
+  const handleJumpToClaim = (claimId: string) => {
+    handleSelectClaim(claimId);
+    setRightTab('claims');
   };
 
   const hasResults = audit.status === 'completed' && audit.claims.length > 0;
@@ -267,6 +282,9 @@ export const App: React.FC = () => {
                     evidenceList={audit.evidence}
                     activeEvidenceId={activeEvidenceId}
                     onSelectEvidence={(id) => setActiveEvidenceId(id)}
+                    claims={audit.claims}
+                    selectedClaimId={selectedClaimId}
+                    onJumpToClaim={handleJumpToClaim}
                   />
                 )}
               </div>
