@@ -1,6 +1,6 @@
 import React from 'react';
-import { PairResult, Evidence } from '../../types';
-import { CheckCircle2, XCircle, AlertTriangle, MinusCircle, FileText, Compass } from 'lucide-react';
+import { PairResult, Evidence, Claim } from '../../types';
+import { CheckCircle2, XCircle, AlertTriangle, MinusCircle, FileText, Compass, ArrowRight } from 'lucide-react';
 
 interface VerdictTrailViewerProps {
   evaluationTrail?: PairResult[];
@@ -8,6 +8,9 @@ interface VerdictTrailViewerProps {
   claimEvidenceIds: string[];
   activeEvidenceId?: string | null;
   onSelectEvidence?: (evidenceId: string) => void;
+  allClaims?: Claim[];
+  selectedClaimId?: string | null;
+  onJumpToClaim?: (claimId: string) => void;
 }
 
 export const VerdictTrailViewer: React.FC<VerdictTrailViewerProps> = ({
@@ -15,7 +18,10 @@ export const VerdictTrailViewer: React.FC<VerdictTrailViewerProps> = ({
   evidenceList,
   claimEvidenceIds,
   activeEvidenceId,
-  onSelectEvidence
+  onSelectEvidence,
+  allClaims = [],
+  selectedClaimId,
+  onJumpToClaim
 }) => {
   const hasTrail = evaluationTrail.length > 0;
 
@@ -128,6 +134,40 @@ export const VerdictTrailViewer: React.FC<VerdictTrailViewerProps> = ({
                   </span>
                   {item.rationale}
                 </p>
+
+                {/* Bidirectional Linking: Cited Claims */}
+                {allClaims.length > 0 && item.evidence_id && (() => {
+                  const citingClaims = allClaims.filter((c) => c.evidence_ids.includes(item.evidence_id));
+                  if (citingClaims.length === 0) return null;
+                  return (
+                    <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-zinc-800/80">
+                      <span className="text-[10px] text-zinc-500 font-mono">Cited in:</span>
+                      {citingClaims.map((cc) => {
+                        const claimIdx = allClaims.findIndex((c) => c.claim_id === cc.claim_id);
+                        const isCurrent = cc.claim_id === selectedClaimId;
+                        return (
+                          <button
+                            key={cc.claim_id}
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onJumpToClaim?.(cc.claim_id);
+                            }}
+                            title={`Jump to Claim ${claimIdx + 1}: "${cc.claim_text.slice(0, 50)}..."`}
+                            className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono transition ${
+                              isCurrent
+                                ? 'bg-zinc-800 text-zinc-200 border border-zinc-600'
+                                : 'bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 border border-zinc-800'
+                            }`}
+                          >
+                            <span>Claim {claimIdx + 1}</span>
+                            <ArrowRight className="w-2.5 h-2.5 text-zinc-500" />
+                          </button>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
               </div>
             );
           })
@@ -137,6 +177,7 @@ export const VerdictTrailViewer: React.FC<VerdictTrailViewerProps> = ({
             .filter((e) => claimEvidenceIds.includes(e.evidence_id))
             .map((ev) => {
               const isActive = activeEvidenceId === ev.evidence_id;
+              const citingClaims = allClaims.filter((c) => c.evidence_ids.includes(ev.evidence_id));
               return (
                 <div
                   key={ev.evidence_id}
@@ -154,6 +195,34 @@ export const VerdictTrailViewer: React.FC<VerdictTrailViewerProps> = ({
                   <p className="font-serif text-xs text-zinc-300 italic bg-zinc-900/60 p-2 rounded">
                     &ldquo;{ev.text}&rdquo;
                   </p>
+                  {citingClaims.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-zinc-800/80">
+                      <span className="text-[10px] text-zinc-500 font-mono">Cited in:</span>
+                      {citingClaims.map((cc) => {
+                        const claimIdx = allClaims.findIndex((c) => c.claim_id === cc.claim_id);
+                        const isCurrent = cc.claim_id === selectedClaimId;
+                        return (
+                          <button
+                            key={cc.claim_id}
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onJumpToClaim?.(cc.claim_id);
+                            }}
+                            title={`Jump to Claim ${claimIdx + 1}`}
+                            className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono transition ${
+                              isCurrent
+                                ? 'bg-zinc-800 text-zinc-200 border border-zinc-600'
+                                : 'bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 border border-zinc-800'
+                            }`}
+                          >
+                            <span>Claim {claimIdx + 1}</span>
+                            <ArrowRight className="w-2.5 h-2.5 text-zinc-500" />
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               );
             })

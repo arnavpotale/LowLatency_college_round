@@ -45,6 +45,25 @@ export const AuditSetupModal: React.FC<AuditSetupModalProps> = ({
     onClose();
   };
 
+  const handlePrefillLiveInputs = async () => {
+    setTitle('Clinical Hypertension Protocol Audit');
+    setAnswer(
+      'The recommended starting dose for adult hypertension is 10mg once daily.\n' +
+      'In severe cases, the maximum allowable dosage is 100mg per day.\n' +
+      'The medication should be administered via subcutaneous injection twice daily.'
+    );
+    if (sources.length === 0) {
+      await onAddTextSource(
+        'clinical_guidelines.txt',
+        '## Clinical Guidelines: Hypertension Management\n' +
+        'Line 2: The recommended starting dose for adult hypertension is 10mg orally once daily.\n' +
+        'Line 3: In severe cases, the dosage may be titrated up to 20mg daily.\n' +
+        'Line 4: Under no circumstances should the dosage exceed 40mg per day due to nephrotoxicity risk.\n' +
+        'Line 5: Patients must be monitored for electrolyte imbalances every two weeks.'
+      );
+    }
+  };
+
   const wordCount = answer.trim() ? answer.trim().split(/\s+/).length : 0;
 
   return (
@@ -68,6 +87,16 @@ export const AuditSetupModal: React.FC<AuditSetupModalProps> = ({
 
           <div className="flex items-center gap-2">
             <button
+              type="button"
+              onClick={handlePrefillLiveInputs}
+              className="px-2.5 py-1 rounded bg-zinc-850 hover:bg-zinc-800 text-zinc-300 hover:text-white text-xs font-mono border border-zinc-700 transition flex items-center gap-1.5"
+              title="Prefill sample ground-truth document and answer for a live demo"
+            >
+              <Sparkles className="w-3 h-3 text-emerald-400" />
+              <span>Prefill Live Demo</span>
+            </button>
+            <button
+              type="button"
               onClick={() => {
                 onLoadDemo();
                 onClose();
@@ -79,6 +108,7 @@ export const AuditSetupModal: React.FC<AuditSetupModalProps> = ({
               <span>Load Sample Case</span>
             </button>
             <button
+              type="button"
               onClick={onClose}
               className="p-1 rounded text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition"
             >

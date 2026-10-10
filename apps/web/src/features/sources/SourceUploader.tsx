@@ -52,11 +52,11 @@ export const SourceUploader: React.FC<SourceUploaderProps> = ({
   };
 
   const validateAndUpload = async (file: File) => {
-    const validExtensions = ['pdf', 'txt', 'md'];
+    const validExtensions = ['pdf', 'txt', 'md', 'docx'];
     const ext = file.name.split('.').pop()?.toLowerCase();
 
     if (!ext || !validExtensions.includes(ext)) {
-      setUploadError(`Unsupported file format .${ext}. Only .pdf, .txt, and .md files are accepted.`);
+      setUploadError(`Unsupported file format .${ext}. Only .pdf, .docx, .txt, and .md files are accepted.`);
       return;
     }
 
@@ -94,7 +94,7 @@ export const SourceUploader: React.FC<SourceUploaderProps> = ({
             Ground-Truth Sources &amp; Evidence
           </h2>
           <p className="text-[11px] text-zinc-500">
-            Reference documents for claim grounding (.pdf, .txt, .md, max 10MB)
+            Reference documents for claim grounding (.pdf, .docx, .txt, .md, max 10MB)
           </p>
         </div>
 
@@ -146,7 +146,7 @@ export const SourceUploader: React.FC<SourceUploaderProps> = ({
             ref={fileInputRef}
             type="file"
             className="hidden"
-            accept=".pdf,.txt,.md"
+            accept=".pdf,.docx,.txt,.md"
             onChange={handleFileChange}
             disabled={isLoading}
           />
@@ -158,7 +158,7 @@ export const SourceUploader: React.FC<SourceUploaderProps> = ({
               Drag &amp; drop reference documents, or <span className="text-zinc-100 underline">browse files</span>
             </p>
             <p className="text-[10px] text-zinc-500 mt-0.5 font-mono">
-              Accepts PDF, Plain Text (.txt), and Markdown (.md)
+              Accepts PDF, Word (.docx), Plain Text (.txt), and Markdown (.md)
             </p>
           </div>
         </div>

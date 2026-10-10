@@ -307,6 +307,7 @@ export const App: React.FC = () => {
               <ClaimDossier
                 claim={selectedClaim}
                 evidenceList={audit.evidence}
+                allClaims={audit.claims}
                 allConflicts={audit.conflict_map || []}
                 onSaveReview={handleSaveReview}
                 activeEvidenceId={activeEvidenceId}
