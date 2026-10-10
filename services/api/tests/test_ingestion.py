@@ -108,3 +108,52 @@ def test_chunk_document_with_section_and_page_markers():
 def test_chunk_document_empty_input():
     assert chunk_document("") == []
     assert chunk_document("   \n\t") == []
+
+
+def test_sanitize_filename():
+    from app.ingestion.parser import sanitize_filename
+
+    assert sanitize_filename("../../etc/passwd") == "passwd"
+    assert sanitize_filename("C:\\Windows\\System32\\cmd.exe") == "cmd.exe"
+    assert sanitize_filename("report <final>: v1.0?.pdf") == "report _final__ v1.0_.pdf"
+    assert sanitize_filename("") == "source_document.txt"
+
+
+def test_extract_docx_file(tmp_path):
+    import zipfile
+    docx_path = tmp_path / "test_doc.docx"
+
+    # Create a minimal valid .docx zip archive on the fly
+    doc_xml = (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+        '<w:body>'
+        '<w:p><w:r><w:t>Clinical Trial Protocol for Drug X.</w:t></w:r></w:p>'
+        '<w:p><w:r><w:t>Recommended daily dosage is 50mg.</w:t></w:r></w:p>'
+        '</w:body>'
+        '</w:document>'
+    )
+    with zipfile.ZipFile(docx_path, "w") as z:
+        z.writestr("word/document.xml", doc_xml)
+
+    text, file_type = extract_text_from_file(str(docx_path), "test_doc.docx")
+    assert file_type == "docx"
+    assert "Clinical Trial Protocol for Drug X." in text
+    assert "Recommended daily dosage is 50mg." in text
+
+
+def test_evidence_location_tag_includes_lines():
+    from app.verification.verifier import ClaimVerifier
+
+    verifier = ClaimVerifier()
+    chunks = [{
+        "text": "The daily limit is 50mg under medical supervision.",
+        "page_or_section": "Section 2.1",
+        "line_start": 14,
+        "line_end": 18
+    }]
+
+    claim_result = verifier.verify_claim("The daily limit is 50mg under medical supervision.", chunks)
+    assert claim_result is not None
+    assert len(claim_result.evidence_ids) > 0
+

@@ -1,5 +1,5 @@
-from typing import Dict, List
-from app.schemas import AuditResponse, Evidence
+from typing import Dict, List, Set
+from app.schemas import AuditResponse, Evidence, Claim, VerdictCategory
 
 
 def format_inline_code(value: str) -> str:
@@ -22,6 +22,40 @@ def format_inline_code(value: str) -> str:
             curr = 0
     delim = "`" * (max_ticks + 1)
     return f"{delim} {val} {delim}"
+
+
+def get_evidence_relationship(ev: Evidence) -> str:
+    """
+    Determines whether evidence is supporting or contradicting ONLY when
+    the individual evidence record explicitly establishes that relationship
+    in its structured attributes.
+    Never infers relationships from claim verdicts, raw text, or explanations.
+    """
+    rel_attr = getattr(ev, "relationship", None) or getattr(ev, "polarity", None)
+    if rel_attr:
+        rel_str = str(rel_attr).strip().lower()
+        if rel_str in ("supporting", "support", "supported"):
+            return "Supporting Evidence"
+        if rel_str in ("contradicting", "contradict", "contradicted", "refuting", "refutes"):
+            return "Contradicting Evidence"
+
+    return "Referenced Evidence"
+
+
+def format_location_string(ev: Evidence) -> str:
+    """
+    Formats page/section and character offsets if present.
+    """
+    s_off = getattr(ev, "start_offset", None) if getattr(ev, "start_offset", None) is not None else getattr(ev, "start_char", None)
+    e_off = getattr(ev, "end_offset", None) if getattr(ev, "end_offset", None) is not None else getattr(ev, "end_char", None)
+
+    loc_parts = []
+    if ev.page_or_section and ev.page_or_section.strip():
+        loc_parts.append(ev.page_or_section.strip())
+    if s_off is not None and e_off is not None:
+        loc_parts.append(f"chars {s_off}-{e_off}")
+
+    return f" ({', '.join(loc_parts)})" if loc_parts else ""
 
 
 def generate_audit_markdown_report(audit: AuditResponse) -> str:
@@ -49,7 +83,7 @@ def generate_audit_markdown_report(audit: AuditResponse) -> str:
         lines.extend([
             "- **Mode:** MOCK SIMULATION",
             "",
-            "> ⚠️ **MOCK SIMULATION NOTICE**: This audit report contains simulated verification results "
+            "> **MOCK SIMULATION NOTICE**: This audit report contains simulated verification results "
             "generated for development, testing, or evaluation purposes. Findings have not been validated "
             "against live production models.",
         ])
@@ -64,8 +98,10 @@ def generate_audit_markdown_report(audit: AuditResponse) -> str:
         "## Source Documents",
     ])
 
+    attached_source_ids: Set[str] = set()
     if audit.sources:
         for src in audit.sources:
+            attached_source_ids.add(src.source_id)
             lines.append(
                 f"- **{format_inline_code(src.filename)}** ({src.file_type.upper()} | {src.char_count:,} characters)"
             )
@@ -139,6 +175,16 @@ def generate_audit_markdown_report(audit: AuditResponse) -> str:
     ])
 
     evidence_map: Dict[str, Evidence] = {ev.evidence_id: ev for ev in audit.evidence}
+    unresolved_citation_ids: Set[str] = set()
+
+    # Count all evidence records referencing source IDs absent from the audit's attached sources
+    if attached_source_ids:
+        unverified_evidence_records = [
+            ev for ev in audit.evidence if ev.source_id not in attached_source_ids
+        ]
+    else:
+        unverified_evidence_records = list(audit.evidence)
+    unverified_source_count = len(unverified_evidence_records)
 
     if not audit.claims:
         lines.append("_No claims were extracted or evaluated for this audit._")
@@ -149,6 +195,7 @@ def generate_audit_markdown_report(audit: AuditResponse) -> str:
             lines.extend([
                 f"### Claim {i}: [{verdict_badge}]",
                 f"- **Claim Text:** \"{claim.claim_text}\"",
+                f"- **Original Machine Verdict:** `{claim.verdict.value}`",
                 f"- **Confidence:** {confidence_pct}%",
                 f"- **Character Offset:** [{claim.start_offset}:{claim.end_offset}]",
                 f"- **Explanation:** {claim.explanation}",
@@ -160,9 +207,17 @@ def generate_audit_markdown_report(audit: AuditResponse) -> str:
                     if ev_id in evidence_map:
                         ev = evidence_map[ev_id]
                         rel_pct = int(round(ev.relevance_score * 100))
-                        loc_str = f" ({ev.page_or_section.strip()})" if ev.page_or_section and ev.page_or_section.strip() else ""
+                        loc_str = format_location_string(ev)
+                        rel_label = get_evidence_relationship(ev)
+
+                        src_status = ""
+                        if attached_source_ids and ev.source_id not in attached_source_ids:
+                            src_status = " [WARNING: Unverified Source Document]"
+                        elif not attached_source_ids:
+                            src_status = " [WARNING: No Attached Source Documents]"
+
                         lines.append(
-                            f"  - **Source:** {format_inline_code(ev.source_name)}{loc_str} | *Relevance:* {rel_pct}%"
+                            f"  - [{rel_label}] **Source:** {format_inline_code(ev.source_name)}{loc_str}{src_status} | *Relevance:* {rel_pct}% (ID: `{ev.evidence_id}`)"
                         )
                         text_lines = ev.text.strip().splitlines()
                         if not text_lines:
@@ -178,6 +233,7 @@ def generate_audit_markdown_report(audit: AuditResponse) -> str:
                                 else:
                                     lines.append(f"    > {t_line}")
                     else:
+                        unresolved_citation_ids.add(ev_id)
                         lines.append(
                             f"  - *Unresolved Citation:* Evidence ID {format_inline_code(ev_id)} not found in evidence catalog."
                         )
@@ -219,7 +275,55 @@ def generate_audit_markdown_report(audit: AuditResponse) -> str:
             s_off = getattr(ev, 'start_offset', None) if getattr(ev, 'start_offset', None) is not None else getattr(ev, 'start_char', None)
             e_off = getattr(ev, 'end_offset', None) if getattr(ev, 'end_offset', None) is not None else getattr(ev, 'end_char', None)
             loc = f" (chars {s_off}-{e_off})" if s_off is not None and e_off is not None else ""
-            lines.append(f"- **[{ev.evidence_id}]** (Source: {format_inline_code(ev.source_name)}{loc}): \"{ev.text.strip()}\"")
+            src_flag = ""
+            if attached_source_ids and ev.source_id not in attached_source_ids:
+                src_flag = " [WARNING: Unverified Source Document]"
+            elif not attached_source_ids:
+                src_flag = " [WARNING: No Attached Source Documents]"
+            lines.append(
+                f"- **[{ev.evidence_id}]** (Source: {format_inline_code(ev.source_name)}{loc}{src_flag}): \"{ev.text.strip()}\""
+            )
         lines.append("")
 
+    # Audit Limitations & Review Status
+    lines.extend([
+        "---",
+        "## Audit Limitations & Verification Scope",
+    ])
+
+    if audit.is_mock:
+        lines.append(
+            "- **Mode Caveat:** Simulation mode is enabled (`is_mock=True`). Findings were generated via simulation or test fixtures and have not been validated by production neural NLI or LLM models."
+        )
+    else:
+        lines.append(
+            "- **Verification Mode:** Non-simulation mode reported (`is_mock=False`). Automated pipeline records indicate standard processing rather than mock fixtures."
+        )
+
+    lines.append(
+        "- **Human Review Status:** The current schema contract does not capture structured human-review decisions, reviewer notes, or review history. Whether human verification or clinical oversight has occurred cannot be determined from this record alone. (Schema fields required for full human audit lifecycle: `human_verdict`, `reviewer_notes`, `review_status`, and `review_history`)."
+    )
+
+    unsupported_count = sum(1 for c in audit.claims if c.verdict == VerdictCategory.UNSUPPORTED)
+    ambiguous_count = sum(1 for c in audit.claims if c.verdict == VerdictCategory.AMBIGUOUS)
+    inconclusive_count = sum(1 for c in audit.claims if c.verdict == VerdictCategory.INCONCLUSIVE)
+    if unsupported_count or ambiguous_count or inconclusive_count:
+        lines.append(
+            f"- **Claim Grounding Limitations:** {unsupported_count + ambiguous_count + inconclusive_count} of {len(audit.claims)} claim(s) lack definitive factual verification ({unsupported_count} unsupported, {ambiguous_count} ambiguous, {inconclusive_count} inconclusive). These claims should not be treated as fully verified facts without manual source inspection."
+        )
+    elif audit.claims:
+        lines.append(
+            "- **Claim Grounding Coverage:** 100% of audited claims were decisively grounded against referenced evidence."
+        )
+
+    if unresolved_citation_ids:
+        lines.append(
+            f"- **Citation Integrity Alert:** {len(unresolved_citation_ids)} cited evidence ID(s) could not be resolved in the audit's evidence catalog."
+        )
+    if unverified_source_count > 0:
+        lines.append(
+            f"- **Source Provenance Alert:** {unverified_source_count} evidence record(s) reference document identifiers not present in the audit's attached source list."
+        )
+
+    lines.append("")
     return "\n".join(lines).strip() + "\n"

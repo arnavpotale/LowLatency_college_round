@@ -21,7 +21,7 @@ from app.schemas import (
     AuditStatus,
     HumanReviewInput
 )
-from app.ingestion.parser import extract_text_from_file
+from app.ingestion.parser import extract_text_from_file, sanitize_filename
 from app.verification import default_verifier, get_verification_engine, ProviderUnavailableError
 from app.reporting.generator import generate_audit_markdown_report
 from app.verification.adversarial_suite import ADVERSARIAL_BENCHMARK_CASES, run_adversarial_suite
@@ -60,7 +60,7 @@ async def upload_source(
 ):
     """
     Attach a source document to an audit.
-    Supports either multipart file upload (.pdf, .txt, .md) or form text submission.
+    Supports multipart file upload (.pdf, .txt, .md, .docx) or form text submission.
     """
     audit = db.query(AuditModel).filter(AuditModel.id == audit_id).first()
     if not audit:
@@ -70,9 +70,7 @@ async def upload_source(
     os.makedirs(settings.upload_dir, exist_ok=True)
 
     if file is not None and file.filename:
-        # Sanitize uploaded filename to prevent directory traversal
-        raw_name = os.path.basename(file.filename)
-        filename = re.sub(r'[^a-zA-Z0-9_\.\-]', '_', raw_name)
+        filename = sanitize_filename(file.filename)
         ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
         if ext not in settings.allowed_extensions_list:
             raise HTTPException(
@@ -92,23 +90,16 @@ async def upload_source(
         with open(saved_path, "wb") as f:
             f.write(file_bytes)
 
-        # Extract text and handle parser errors gracefully
+        # Extract text with automatic temp file cleanup on error
         try:
             extracted_text, detected_type = extract_text_from_file(saved_path, filename)
-        except ValueError as e:
-            if os.path.exists(saved_path):
-                try:
-                    os.remove(saved_path)
-                except OSError:
-                    pass
-            raise HTTPException(status_code=400, detail=str(e))
         except Exception as e:
             if os.path.exists(saved_path):
                 try:
                     os.remove(saved_path)
                 except OSError:
                     pass
-            raise HTTPException(status_code=400, detail=f"Failed to process file '{filename}': {str(e)}")
+            raise HTTPException(status_code=400, detail=str(e))
 
         char_count = len(extracted_text)
         snippet = extracted_text[:300].strip()
