@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "node --test src/features/claims/__tests__/*.test.js"
   },
   "dependencies": {
     "clsx": "^2.1.0",
