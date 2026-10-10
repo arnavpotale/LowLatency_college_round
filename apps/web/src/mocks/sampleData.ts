@@ -72,7 +72,26 @@ export const MOCK_INITIAL_AUDIT: AuditResponse = {
       verdict: "contradicted",
       explanation: "Direct contradiction: The protocol strictly sets max daily dosage to 50mg, whereas the answer claims 100mg twice daily (200mg total).",
       confidence: 0.98,
-      evidence_ids: ["ev_01"]
+      evidence_ids: ["ev_01"],
+      autopsy: {
+        problematic_phrase: "100mg twice daily",
+        issue_type: "quantity_mismatch",
+        claim_elements: ["100mg twice daily (200mg/day)"],
+        evidence_elements: ["50mg max daily (20mg tid / 25mg bid)"],
+        diagnosis: "Hazardous dosage inflation: statement specifies 200mg/day, which is 400% of the strictly mandated maximum threshold of 50mg/day."
+      },
+      evaluation_trail: [
+        {
+          evidence_id: "ev_01",
+          relation: "contradicts",
+          score: 0.98,
+          rationale: "Protocol strictly restricts maximum daily administration to 50mg. 100mg bid exceeds safe threshold by 300%.",
+          numerical_finding: "Numerical conflict: claim asserts 100mg twice daily vs max safe threshold of 50mg daily.",
+          source_name: "clinical_protocol_metaproterenol.txt",
+          page_or_section: "Section 2.3",
+          excerpt: "The standard recommended initial dosage for adult patients is 20mg administered three times daily, or 25mg twice daily. Under no circumstances should daily administration exceed 50mg."
+        }
+      ]
     },
     {
       claim_id: "cl_02",
@@ -82,7 +101,15 @@ export const MOCK_INITIAL_AUDIT: AuditResponse = {
       verdict: "unsupported",
       explanation: "No mention of 45% symptom reduction or a 12-week trial duration exists in the provided clinical documentation.",
       confidence: 0.32,
-      evidence_ids: []
+      evidence_ids: [],
+      autopsy: {
+        problematic_phrase: "reduced symptom severity by 45% over 12 weeks",
+        issue_type: "missing_evidence",
+        claim_elements: ["45% reduction", "12 weeks"],
+        evidence_elements: [],
+        diagnosis: "Ungrounded claim: numerical trial endpoints are completely unmentioned in the uploaded prescribing protocol."
+      },
+      evaluation_trail: []
     },
     {
       claim_id: "cl_03",
@@ -92,7 +119,25 @@ export const MOCK_INITIAL_AUDIT: AuditResponse = {
       verdict: "contradicted",
       explanation: "Dangerous contradiction: Section 4.1 explicitly states it is strictly contraindicated with beta-blockers due to hypertensive crisis risk.",
       confidence: 0.99,
-      evidence_ids: ["ev_02"]
+      evidence_ids: ["ev_02"],
+      autopsy: {
+        problematic_phrase: "zero contraindications",
+        issue_type: "polarity_negation",
+        claim_elements: ["zero contraindications", "entirely non-toxic"],
+        evidence_elements: ["strictly contraindicated", "severe risk of hypertensive crisis"],
+        diagnosis: "Negation reversal: assertion states zero contraindications, directly inverting documented severe clinical contraindication."
+      },
+      evaluation_trail: [
+        {
+          evidence_id: "ev_02",
+          relation: "contradicts",
+          score: 0.99,
+          rationale: "Direct contraindication violation: compound triggers severe hypertensive crisis and bronchospasm when combined with beta-blockers.",
+          source_name: "clinical_protocol_metaproterenol.txt",
+          page_or_section: "Section 4.1",
+          excerpt: "Metaproterenol is strictly contraindicated with concurrent non-selective beta-blockers due to severe risk of hypertensive crisis and bronchospasm."
+        }
+      ]
     },
     {
       claim_id: "cl_04",
@@ -102,7 +147,26 @@ export const MOCK_INITIAL_AUDIT: AuditResponse = {
       verdict: "contradicted",
       explanation: "Numerical contradiction: Section 7.4 states operating expenditures increased by 8%, not dropped by 15%.",
       confidence: 0.91,
-      evidence_ids: ["ev_03"]
+      evidence_ids: ["ev_03"],
+      autopsy: {
+        problematic_phrase: "dropped by 15%",
+        issue_type: "direct_contradiction",
+        claim_elements: ["dropped by 15%"],
+        evidence_elements: ["increased by 8%"],
+        diagnosis: "Directional & numerical mismatch: statement claims costs dropped 15%, but fiscal record documents an 8% increase (+23% delta)."
+      },
+      evaluation_trail: [
+        {
+          evidence_id: "ev_03",
+          relation: "contradicts",
+          score: 0.91,
+          rationale: "Directional conflict: source documents expenditures increased by 8%, conflicting with asserted 15% drop.",
+          numerical_finding: "Numerical mismatch: +8% vs -15%",
+          source_name: "clinical_protocol_metaproterenol.txt",
+          page_or_section: "Section 7.4",
+          excerpt: "Operating expenditures for compound synthesis increased by 8% in Q3 due to raw precursor shortages and specialized cleanroom standards."
+        }
+      ]
     },
     {
       claim_id: "cl_05",
@@ -112,7 +176,15 @@ export const MOCK_INITIAL_AUDIT: AuditResponse = {
       verdict: "unsupported",
       explanation: "Unsupported claim containing unsafe medical guidance conflicting with standard prescription protocol.",
       confidence: 0.25,
-      evidence_ids: []
+      evidence_ids: [],
+      autopsy: {
+        problematic_phrase: "unnecessary for individuals under age 50",
+        issue_type: "missing_evidence",
+        claim_elements: ["physician consultation unnecessary under 50"],
+        evidence_elements: [],
+        diagnosis: "Fabricated exception: protocol establishes universal clinical oversight requirements with no age exemption."
+      },
+      evaluation_trail: []
     }
   ],
   verdicts: {

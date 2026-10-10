@@ -86,25 +86,25 @@ export const SourceUploader: React.FC<SourceUploaderProps> = ({
   };
 
   return (
-    <div className="bg-slate-900/60 rounded-xl border border-slate-800 p-5 flex flex-col gap-4">
+    <div className="bg-[#15181e] rounded-lg border border-zinc-800 p-4 flex flex-col gap-3">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-sm font-semibold text-white flex items-center gap-2">
-            <FileText className="w-4 h-4 text-indigo-400" />
-            Source Documents & Evidence Base
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-300 flex items-center gap-2">
+            <FileText className="w-3.5 h-3.5 text-zinc-400" />
+            Ground-Truth Sources &amp; Evidence
           </h2>
-          <p className="text-xs text-slate-400">
-            Ground truth documents used to verify or refute claims (.pdf, .txt, .md, max 10MB)
+          <p className="text-[11px] text-zinc-500">
+            Reference documents for claim grounding (.pdf, .txt, .md, max 10MB)
           </p>
         </div>
 
         {/* Mode Toggle */}
-        <div className="flex items-center bg-slate-800 p-0.5 rounded-lg border border-slate-700/60 text-xs">
+        <div className="flex items-center bg-[#101216] p-0.5 rounded border border-zinc-800 text-xs font-medium">
           <button
             type="button"
             onClick={() => setMode('file')}
-            className={`px-2.5 py-1 rounded-md transition font-medium ${
-              mode === 'file' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-slate-200'
+            className={`px-2.5 py-1 rounded transition text-xs ${
+              mode === 'file' ? 'bg-zinc-800 text-zinc-100 font-semibold' : 'text-zinc-500 hover:text-zinc-300'
             }`}
           >
             File Upload
@@ -112,8 +112,8 @@ export const SourceUploader: React.FC<SourceUploaderProps> = ({
           <button
             type="button"
             onClick={() => setMode('text')}
-            className={`px-2.5 py-1 rounded-md transition font-medium ${
-              mode === 'text' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-slate-200'
+            className={`px-2.5 py-1 rounded transition text-xs ${
+              mode === 'text' ? 'bg-zinc-800 text-zinc-100 font-semibold' : 'text-zinc-500 hover:text-zinc-300'
             }`}
           >
             Paste Text
@@ -122,7 +122,7 @@ export const SourceUploader: React.FC<SourceUploaderProps> = ({
       </div>
 
       {uploadError && (
-        <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-lg text-rose-400 text-xs flex items-center gap-2">
+        <div className="p-2.5 bg-rose-950/40 border border-rose-800 rounded text-rose-300 text-xs flex items-center gap-2">
           <AlertCircle className="w-4 h-4 shrink-0" />
           <span>{uploadError}</span>
         </div>
@@ -136,10 +136,10 @@ export const SourceUploader: React.FC<SourceUploaderProps> = ({
           onDragOver={handleDrag}
           onDrop={handleDrop}
           onClick={() => fileInputRef.current?.click()}
-          className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition flex flex-col items-center justify-center gap-2 ${
+          className={`border border-dashed rounded p-5 text-center cursor-pointer transition flex flex-col items-center justify-center gap-2 ${
             dragActive
-              ? 'border-indigo-500 bg-indigo-500/10'
-              : 'border-slate-700 hover:border-slate-600 bg-slate-950/40'
+              ? 'border-zinc-400 bg-zinc-800/40'
+              : 'border-zinc-700/80 hover:border-zinc-500 bg-[#101216]'
           }`}
         >
           <input
@@ -150,40 +150,40 @@ export const SourceUploader: React.FC<SourceUploaderProps> = ({
             onChange={handleFileChange}
             disabled={isLoading}
           />
-          <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-indigo-400">
-            <Upload className="w-5 h-5" />
+          <div className="w-8 h-8 rounded bg-zinc-800 flex items-center justify-center text-zinc-300">
+            <Upload className="w-4 h-4" />
           </div>
           <div>
-            <p className="text-xs font-medium text-slate-200">
-              Drag and drop source documents, or <span className="text-indigo-400 underline">browse</span>
+            <p className="text-xs font-medium text-zinc-300">
+              Drag &amp; drop reference documents, or <span className="text-zinc-100 underline">browse files</span>
             </p>
-            <p className="text-[11px] text-slate-500 mt-0.5">
-              Supports PDF, Plain Text (.txt), and Markdown (.md)
+            <p className="text-[10px] text-zinc-500 mt-0.5 font-mono">
+              Accepts PDF, Plain Text (.txt), and Markdown (.md)
             </p>
           </div>
         </div>
       ) : (
         /* Text Paste Area */
-        <form onSubmit={handleTextSubmit} className="flex flex-col gap-3">
+        <form onSubmit={handleTextSubmit} className="flex flex-col gap-2.5">
           <input
             type="text"
             placeholder="Document label (e.g. Clinical Trial Findings.txt)"
             value={textTitle}
             onChange={(e) => setTextTitle(e.target.value)}
-            className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+            className="w-full bg-[#101216] border border-zinc-800 rounded px-3 py-1.5 text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-zinc-600 font-mono"
           />
           <textarea
             rows={4}
             placeholder="Paste reference text or excerpt here..."
             value={textContent}
             onChange={(e) => setTextContent(e.target.value)}
-            className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500 font-mono"
+            className="w-full bg-[#101216] border border-zinc-800 rounded p-3 text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-zinc-600 font-serif leading-relaxed"
             required
           />
           <button
             type="submit"
             disabled={isLoading || !textContent.trim()}
-            className="self-end px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-medium flex items-center gap-1.5 transition"
+            className="self-end px-3 py-1.5 rounded bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 text-zinc-200 text-xs font-medium flex items-center gap-1.5 transition border border-zinc-700"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>Add Source Document</span>
@@ -193,28 +193,28 @@ export const SourceUploader: React.FC<SourceUploaderProps> = ({
 
       {/* Uploaded Sources List */}
       {sources.length > 0 && (
-        <div className="mt-2 space-y-2">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+        <div className="mt-1 space-y-1.5">
+          <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500">
             Attached Sources ({sources.length})
-          </p>
+          </span>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {sources.map((src) => (
               <div
                 key={src.source_id}
-                className="p-2.5 rounded-lg bg-slate-800/60 border border-slate-700/60 flex items-start gap-2.5"
+                className="p-2 rounded bg-[#101216] border border-zinc-800 flex items-start gap-2"
               >
-                <div className="p-1.5 rounded bg-indigo-500/10 text-indigo-400 shrink-0">
-                  <FileCode className="w-4 h-4" />
+                <div className="p-1 rounded bg-zinc-800 text-zinc-400 shrink-0">
+                  <FileCode className="w-3.5 h-3.5" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-1">
-                    <p className="text-xs font-medium text-slate-200 truncate">{src.filename}</p>
-                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-700 text-slate-300 uppercase">
+                    <p className="text-xs font-medium text-zinc-200 truncate">{src.filename}</p>
+                    <span className="text-[9px] font-mono px-1 py-0.2 rounded bg-zinc-800 text-zinc-400 uppercase border border-zinc-700">
                       {src.file_type}
                     </span>
                   </div>
-                  <p className="text-[11px] text-slate-400 mt-0.5">
-                    {src.char_count.toLocaleString()} characters
+                  <p className="text-[10px] text-zinc-500 mt-0.5 font-mono">
+                    {src.char_count.toLocaleString()} chars
                   </p>
                 </div>
               </div>

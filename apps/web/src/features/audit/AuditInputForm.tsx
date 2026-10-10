@@ -25,7 +25,6 @@ export const AuditInputForm: React.FC<AuditInputFormProps> = ({
     await onSubmit(title.trim() || 'Untitled Audit', answer.trim());
   };
 
-  // Keep state updated if parent updates initialAnswer (e.g. from Load Demo Sample)
   React.useEffect(() => {
     setTitle(initialTitle);
     setAnswer(initialAnswer);
@@ -35,14 +34,14 @@ export const AuditInputForm: React.FC<AuditInputFormProps> = ({
   const charCount = answer.length;
 
   return (
-    <form onSubmit={handleSubmit} className="bg-slate-900/60 rounded-xl border border-slate-800 p-5 flex flex-col gap-4">
+    <form onSubmit={handleSubmit} className="bg-[#15181e] rounded-lg border border-zinc-800 p-4 flex flex-col gap-3">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div>
-          <h2 className="text-sm font-semibold text-white flex items-center gap-2">
-            <Bot className="w-4 h-4 text-indigo-400" />
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-300 flex items-center gap-2">
+            <Bot className="w-3.5 h-3.5 text-zinc-400" />
             AI-Generated Answer for Verification
           </h2>
-          <p className="text-xs text-slate-400">
+          <p className="text-[11px] text-zinc-500">
             Paste the LLM or AI-generated response you want to audit against source documents
           </p>
         </div>
@@ -52,7 +51,7 @@ export const AuditInputForm: React.FC<AuditInputFormProps> = ({
           placeholder="Audit session title..."
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          className="bg-slate-950 border border-slate-700/80 rounded-lg px-3 py-1 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500 w-full sm:w-60"
+          className="bg-[#101216] border border-zinc-800 rounded px-2.5 py-1 text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-zinc-600 w-full sm:w-56"
         />
       </div>
 
@@ -62,23 +61,23 @@ export const AuditInputForm: React.FC<AuditInputFormProps> = ({
           value={answer}
           onChange={(e) => setAnswer(e.target.value)}
           placeholder="Paste AI answer text here (e.g. 'The recommended dosage is 100mg twice daily...')"
-          className="w-full bg-slate-950 border border-slate-700/80 rounded-xl p-4 text-xs sm:text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500 font-mono leading-relaxed"
+          className="w-full bg-[#101216] border border-zinc-800 rounded p-3 text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-zinc-600 font-serif leading-relaxed"
           required
         />
-        <div className="absolute right-3 bottom-3 text-[10px] text-slate-500 font-mono">
+        <div className="absolute right-2.5 bottom-2 text-[10px] text-zinc-500 font-mono">
           {wordCount} words | {charCount} chars
         </div>
       </div>
 
       <div className="flex items-center justify-between pt-1">
-        <div className="text-xs text-slate-400">
+        <div className="text-xs text-zinc-500 font-mono text-[11px]">
           {!hasSources ? (
-            <span className="text-amber-400 text-xs">
-              ⚠️ Note: Attaching source documents enables evidence retrieval & grounding.
+            <span className="text-amber-400">
+              Note: Attaching source documents enables evidence grounding.
             </span>
           ) : (
-            <span className="text-emerald-400 text-xs">
-              ✓ Ready for ground-truth verification
+            <span className="text-emerald-400">
+              ✓ Ground-truth sources attached
             </span>
           )}
         </div>
@@ -86,17 +85,17 @@ export const AuditInputForm: React.FC<AuditInputFormProps> = ({
         <button
           type="submit"
           disabled={isLoading || !answer.trim()}
-          className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 disabled:opacity-50 text-white text-xs sm:text-sm font-semibold shadow-lg shadow-indigo-600/25 flex items-center gap-2 transition"
+          className="px-4 py-2 rounded bg-zinc-200 hover:bg-white disabled:opacity-50 text-zinc-900 text-xs font-semibold flex items-center gap-1.5 transition shadow-sm"
         >
           {isLoading ? (
             <>
-              <RefreshCw className="w-4 h-4 animate-spin" />
+              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
               <span>Auditing Claims...</span>
             </>
           ) : (
             <>
-              <Play className="w-4 h-4 fill-white" />
-              <span>Start Audit Verification</span>
+              <Play className="w-3.5 h-3.5 fill-zinc-900 text-zinc-900" />
+              <span>Execute Audit</span>
             </>
           )}
         </button>

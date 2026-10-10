@@ -1,11 +1,12 @@
 import React from 'react';
-import { ShieldCheck, Activity, Sparkles, FileText } from 'lucide-react';
+import { ShieldCheck, Activity, Sparkles, FileText, FlaskConical } from 'lucide-react';
 import { HealthResponse } from '../types';
 
 interface NavbarProps {
   health: HealthResponse | null;
   onLoadDemo: () => void;
   onOpenReport?: () => void;
+  onOpenAdversarialLab: () => void;
   hasCompletedAudit: boolean;
 }
 
@@ -13,59 +14,71 @@ export const Navbar: React.FC<NavbarProps> = ({
   health,
   onLoadDemo,
   onOpenReport,
+  onOpenAdversarialLab,
   hasCompletedAudit
 }) => {
   return (
-    <header className="border-b border-slate-800 bg-slate-900/80 backdrop-blur-md sticky top-0 z-40">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+    <header className="border-b border-zinc-800 bg-[#12141a]/95 backdrop-blur-md sticky top-0 z-40">
+      <div className="max-w-[1720px] mx-auto px-4 sm:px-6 h-15 flex items-center justify-between">
         {/* Brand */}
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-emerald-400 p-0.5 flex items-center justify-center shadow-lg shadow-indigo-500/20">
-            <div className="w-full h-full bg-slate-950 rounded-[10px] flex items-center justify-center">
-              <ShieldCheck className="w-5 h-5 text-indigo-400" />
-            </div>
+          <div className="w-8 h-8 rounded bg-zinc-800 border border-zinc-700 flex items-center justify-center text-zinc-100 shadow-sm">
+            <ShieldCheck className="w-4 h-4 text-zinc-200" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-lg font-bold tracking-tight text-white">
+              <span className="text-sm font-semibold tracking-tight text-zinc-100 font-sans">
                 Second Opinion
-              </h1>
-              <span className="text-[10px] font-semibold tracking-wider uppercase px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                v0.1.0 Prototype
+              </span>
+              <span className="text-[10px] font-mono tracking-wider uppercase px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-zinc-700">
+                Evidence Workspace
               </span>
             </div>
-            <p className="text-xs text-slate-400">
-              AI Answer Verification & Fact-Auditing Platform
+            <p className="text-[11px] text-zinc-500 hidden sm:block">
+              Forensic Claim Decomposition &amp; Multi-Source Evidence Auditing
             </p>
           </div>
         </div>
 
         {/* Action Controls & Health Status */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
           {/* Health status badge */}
-          <div className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-lg bg-slate-800/60 border border-slate-700/60 text-xs">
-            <Activity className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
-            <span className="text-slate-300">API:</span>
-            <span className={health?.status === 'healthy' ? 'text-emerald-400 font-medium' : 'text-amber-400 font-medium'}>
-              {health?.status === 'healthy' ? 'Connected' : 'Client Mock'}
+          <div className="hidden sm:flex items-center gap-2 px-2.5 py-1 rounded bg-zinc-900 border border-zinc-800 text-[11px]">
+            <Activity className="w-3 h-3 text-emerald-400" />
+            <span className="text-zinc-500 font-mono">ENGINE:</span>
+            <span className={health?.status === 'healthy' ? 'text-emerald-400 font-mono font-medium' : 'text-amber-400 font-mono font-medium'}>
+              {health?.status === 'healthy' ? 'API LIVE' : 'CLIENT MOCK'}
             </span>
           </div>
 
           {/* Quick Demo Pre-load Button */}
           <button
             onClick={onLoadDemo}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium border border-slate-700 transition"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-zinc-900 hover:bg-zinc-800 text-zinc-300 text-xs font-medium border border-zinc-700/80 transition"
             title="Load sample medical & financial contradiction case"
           >
-            <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+            <Sparkles className="w-3.5 h-3.5 text-zinc-400" />
             <span>Load Demo Case</span>
+          </button>
+
+          {/* Adversarial Claim Lab Trigger Button */}
+          <button
+            onClick={onOpenAdversarialLab}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-100 text-xs font-medium border border-zinc-600/80 transition shadow-sm"
+            title="Open the live Adversarial Stress Test Lab"
+          >
+            <FlaskConical className="w-3.5 h-3.5 text-amber-400" />
+            <span className="font-medium">Adversarial Lab</span>
+            <span className="text-[10px] font-mono bg-zinc-900 px-1 py-0.2 rounded text-zinc-400 border border-zinc-700">
+              8 Tests
+            </span>
           </button>
 
           {/* Report Button (if audit completed) */}
           {hasCompletedAudit && (
             <button
               onClick={onOpenReport}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium shadow-md shadow-indigo-600/20 transition"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-zinc-100 hover:bg-white text-zinc-900 text-xs font-medium shadow-sm transition"
             >
               <FileText className="w-3.5 h-3.5" />
               <span>Audit Report</span>

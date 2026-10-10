@@ -18,11 +18,13 @@ from app.schemas import (
     AuditResponse,
     Source as SourceSchema,
     SourceCreateText,
-    AuditStatus
+    AuditStatus,
+    HumanReviewInput
 )
 from app.ingestion.parser import extract_text_from_file
 from app.verification import default_verifier, get_verification_engine, ProviderUnavailableError
 from app.reporting.generator import generate_audit_markdown_report
+from app.verification.adversarial_suite import ADVERSARIAL_BENCHMARK_CASES, run_adversarial_suite
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/audits", tags=["Audits"])
@@ -90,8 +92,24 @@ async def upload_source(
         with open(saved_path, "wb") as f:
             f.write(file_bytes)
 
-        # Extract text
-        extracted_text, detected_type = extract_text_from_file(saved_path, filename)
+        # Extract text and handle parser errors gracefully
+        try:
+            extracted_text, detected_type = extract_text_from_file(saved_path, filename)
+        except ValueError as e:
+            if os.path.exists(saved_path):
+                try:
+                    os.remove(saved_path)
+                except OSError:
+                    pass
+            raise HTTPException(status_code=400, detail=str(e))
+        except Exception as e:
+            if os.path.exists(saved_path):
+                try:
+                    os.remove(saved_path)
+                except OSError:
+                    pass
+            raise HTTPException(status_code=400, detail=f"Failed to process file '{filename}': {str(e)}")
+
         char_count = len(extracted_text)
         snippet = extracted_text[:300].strip()
 
@@ -204,6 +222,21 @@ def analyze_audit(audit_id: str, db: Session = Depends(get_db)):
     return audit.to_schema()
 
 
+@router.get("/adversarial-lab/cases")
+def get_adversarial_cases():
+    """Returns curated adversarial benchmark cases for stress-testing verification."""
+    return {"cases": ADVERSARIAL_BENCHMARK_CASES}
+
+
+@router.post("/adversarial-lab/run")
+def run_adversarial_lab():
+    """
+    Executes live verification against the adversarial stress test suite.
+    Runs the genuine verification engine and returns pass/fail and latency results.
+    """
+    return run_adversarial_suite()
+
+
 @router.get("/{audit_id}", response_model=AuditResponse)
 def get_audit(audit_id: str, db: Session = Depends(get_db)):
     """Fetch audit session details and current state."""
@@ -231,3 +264,69 @@ def get_audit_report(audit_id: str, db: Session = Depends(get_db)):
     
     schema = audit.to_schema()
     return generate_audit_markdown_report(schema)
+
+
+@router.post("/{audit_id}/claims/{claim_id}/review", response_model=AuditResponse)
+def review_claim(
+    audit_id: str,
+    claim_id: str,
+    payload: HumanReviewInput,
+    db: Session = Depends(get_db)
+):
+    """
+    Records a human auditor's review judgment, notes, or verdict override on a specific claim.
+    Preserves the original machine verdict while allowing human override.
+    """
+    audit = db.query(AuditModel).filter(AuditModel.id == audit_id).first()
+    if not audit:
+        raise HTTPException(status_code=404, detail="Audit not found")
+
+    if not audit.results_json:
+        raise HTTPException(status_code=400, detail="Audit has not been analyzed yet")
+
+    try:
+        results = json.loads(audit.results_json)
+    except Exception:
+        raise HTTPException(status_code=500, detail="Failed to parse audit results JSON")
+
+    claims = results.get("claims", [])
+    target_claim = None
+    for c in claims:
+        if c.get("claim_id") == claim_id:
+            target_claim = c
+            break
+
+    if not target_claim:
+        raise HTTPException(status_code=404, detail=f"Claim '{claim_id}' not found in audit")
+
+    original_verdict = target_claim.get("verdict", "unsupported")
+    review_record = {
+        "action": payload.action,
+        "notes": payload.notes or "",
+        "reviewer": payload.reviewer or "Human Auditor",
+        "reviewed_at": datetime.utcnow().isoformat(),
+        "original_verdict": original_verdict
+    }
+
+    target_claim["human_review"] = review_record
+
+    # If reviewer explicitly overrides verdict, update claim verdict
+    if payload.action == "override_supported":
+        target_claim["verdict"] = "supported"
+    elif payload.action == "override_contradicted":
+        target_claim["verdict"] = "contradicted"
+    elif payload.action == "override_unsupported":
+        target_claim["verdict"] = "unsupported"
+
+    # Re-tally verdicts
+    verdict_counts = {}
+    for c in claims:
+        v = c.get("verdict", "unsupported")
+        verdict_counts[v] = verdict_counts.get(v, 0) + 1
+    results["verdicts"] = verdict_counts
+    results["claims"] = claims
+
+    audit.results_json = json.dumps(results)
+    db.commit()
+    db.refresh(audit)
+    return audit.to_schema()
