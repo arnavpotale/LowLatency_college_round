@@ -1,42 +1,39 @@
 import React from 'react';
-import { AuditSummary, ConsistencyFinding, SafetyFinding } from '../../types';
-import { ShieldAlert, ShieldCheck, AlertTriangle, AlertCircle, Sparkles } from 'lucide-react';
+import { AuditSummary, ConsistencyFinding, SafetyFinding, ConflictDetail } from '../../types';
+import { ShieldAlert, ShieldCheck, AlertTriangle, AlertCircle, Info, GitFork } from 'lucide-react';
 
 interface AuditSummaryCardProps {
   summary: AuditSummary;
   consistencyFindings: ConsistencyFinding[];
   safetyFindings: SafetyFinding[];
+  conflicts?: ConflictDetail[];
   isMock: boolean;
+  onOpenAdversarialLab?: () => void;
 }
 
 export const AuditSummaryCard: React.FC<AuditSummaryCardProps> = ({
   summary,
   consistencyFindings,
   safetyFindings,
+  conflicts = [],
   isMock
 }) => {
-  const getScoreColor = (score: number) => {
-    if (score >= 80) return 'text-emerald-400 stroke-emerald-400';
-    if (score >= 50) return 'text-amber-400 stroke-amber-400';
-    return 'text-rose-400 stroke-rose-400';
-  };
-
   const getRiskBadge = (risk: string) => {
     switch (risk.toLowerCase()) {
       case 'high':
         return {
-          bg: 'bg-rose-500/10 border-rose-500/30 text-rose-400',
-          icon: <ShieldAlert className="w-4 h-4 text-rose-400" />
+          bg: 'bg-[#FDF0F0] dark:bg-[#B91C1C]/25 border-[#F7C5C5] dark:border-[#6B2323] text-[#9E2222] dark:text-[#F17575]',
+          icon: <ShieldAlert className="w-3.5 h-3.5 text-[#9E2222] dark:text-[#F17575]" />
         };
       case 'medium':
         return {
-          bg: 'bg-amber-500/10 border-amber-500/30 text-amber-400',
-          icon: <AlertTriangle className="w-4 h-4 text-amber-400" />
+          bg: 'bg-[#FEF6E9] dark:bg-[#B45309]/25 border-[#F8DCAB] dark:border-[#633910] text-[#965B0A] dark:text-[#E5AC48]',
+          icon: <AlertTriangle className="w-3.5 h-3.5 text-[#965B0A] dark:text-[#E5AC48]" />
         };
       default:
         return {
-          bg: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400',
-          icon: <ShieldCheck className="w-4 h-4 text-emerald-400" />
+          bg: 'bg-[#E8F5EE] dark:bg-[#176B58]/25 border-[#B7E1CA] dark:border-[#2C5E4E] text-[#0E6245] dark:text-[#65B89D]',
+          icon: <ShieldCheck className="w-3.5 h-3.5 text-[#0E6245] dark:text-[#65B89D]" />
         };
     }
   };
@@ -44,110 +41,130 @@ export const AuditSummaryCard: React.FC<AuditSummaryCardProps> = ({
   const riskBadge = getRiskBadge(summary.risk_level);
 
   return (
-    <div className="bg-slate-900/80 rounded-xl border border-slate-800 p-5 flex flex-col gap-5">
+    <div className="bg-white dark:bg-[#191F1C] rounded-lg border border-[#DCE3DF] dark:border-[#343E38] p-4 flex flex-col gap-3 shadow-xs">
       {/* Simulation Banner Notice */}
       {isMock && (
-        <div className="px-3.5 py-2 rounded-lg bg-indigo-950/40 border border-indigo-500/30 flex items-center justify-between text-xs text-indigo-300">
+        <div className="px-3 py-1.5 rounded bg-[#FEF6E9] dark:bg-[#B45309]/20 border border-[#F8DCAB] dark:border-[#633910] flex items-center justify-between text-xs text-[#965B0A] dark:text-[#E5AC48]">
           <div className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-indigo-400 shrink-0" />
+            <Info className="w-3.5 h-3.5 shrink-0" />
             <span>
-              <strong>Simulation Mode:</strong> Findings generated via mock verification pipeline adhering to the final shared schema contract.
+              <strong className="font-semibold">Demonstration Mode:</strong> Findings generated via local verified test fixture. Connect live API for dynamic multi-document parsing.
             </span>
           </div>
-          <span className="font-mono text-[10px] uppercase tracking-wider bg-indigo-500/20 px-2 py-0.5 rounded">
-            Mock Active
+          <span className="font-mono text-[10px] uppercase tracking-wider bg-white dark:bg-[#202824] px-2 py-0.5 rounded text-[#965B0A] dark:text-[#E5AC48] border border-[#F8DCAB] dark:border-[#633910] font-semibold">
+            MOCK FIXTURE
           </span>
         </div>
       )}
 
-      {/* Top metrics row */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* Trust Score */}
-        <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 flex items-center gap-4">
-          <div className="relative w-16 h-16 flex items-center justify-center shrink-0">
-            <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
-              <path
-                className="text-slate-800"
-                strokeWidth="3.5"
-                stroke="currentColor"
-                fill="none"
-                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-              />
-              <path
-                className={getScoreColor(summary.trust_score)}
-                strokeDasharray={`${summary.trust_score}, 100`}
-                strokeWidth="3.5"
-                strokeLinecap="round"
-                stroke="currentColor"
-                fill="none"
-                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-              />
-            </svg>
-            <span className={`absolute text-sm font-bold font-mono ${getScoreColor(summary.trust_score)}`}>
-              {Math.round(summary.trust_score)}%
+      {/* Top metrics bar */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
+        {/* Metric 1: Trust Score */}
+        <div
+          className="p-3 rounded bg-[#EDF1EF] dark:bg-[#202824] border border-[#DCE3DF] dark:border-[#343E38] flex flex-col justify-between cursor-help"
+          title="Normalized Trust Score: Supported ÷ (Supported + Contradicted + Unsupported) × 100. Ambiguous and inconclusive assertions are excluded."
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-mono uppercase tracking-wider text-[#58645F] dark:text-[#A7B2AB] font-semibold">
+              Trust Index
+            </span>
+            <span className="text-[9px] font-mono text-[#58645F] dark:text-[#A7B2AB]">
+              {summary.decisive_claims ?? (summary.supported_claims + summary.contradicted_claims + summary.unsupported_claims)} dec.
             </span>
           </div>
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-              Audit Trust Score
-            </p>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Penalty-weighted evidence alignment
-            </p>
+          <div className="flex items-baseline gap-1 mt-1">
+            <span className="text-2xl font-bold font-mono text-[#17211D] dark:text-[#EDF2EE]">
+              {summary.trust_score !== null && summary.trust_score !== undefined
+                ? Math.round(summary.trust_score)
+                : 'N/A'}
+            </span>
+            {summary.trust_score !== null && summary.trust_score !== undefined && (
+              <span className="text-xs text-[#58645F] dark:text-[#A7B2AB] font-mono">/100</span>
+            )}
           </div>
         </div>
 
-        {/* Risk Assessment */}
-        <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 flex items-center justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-              Overall Risk Level
-            </p>
-            <div className="mt-1 flex items-center gap-2">
-              <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border uppercase tracking-wider ${riskBadge.bg}`}>
-                {riskBadge.icon}
-                {summary.risk_level} Risk
-              </span>
-            </div>
+        {/* Metric 2: Risk Assessment */}
+        <div className="p-3 rounded bg-[#EDF1EF] dark:bg-[#202824] border border-[#DCE3DF] dark:border-[#343E38] flex flex-col justify-between">
+          <span className="text-[10px] font-mono uppercase tracking-wider text-[#58645F] dark:text-[#A7B2AB] font-semibold">
+            Risk Profile
+          </span>
+          <div className="mt-1">
+            <span
+              className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-semibold border uppercase tracking-wider ${riskBadge.bg}`}
+            >
+              {riskBadge.icon}
+              {summary.risk_level}
+            </span>
           </div>
-          <div className="text-right">
-            <p className="text-2xl font-bold font-mono text-white">
+        </div>
+
+        {/* Metric 3: Assertions Audited */}
+        <div className="p-3 rounded bg-[#EDF1EF] dark:bg-[#202824] border border-[#DCE3DF] dark:border-[#343E38] flex flex-col justify-between">
+          <span className="text-[10px] font-mono uppercase tracking-wider text-[#58645F] dark:text-[#A7B2AB] font-semibold">
+            Assertions
+          </span>
+          <div className="flex items-baseline gap-1.5 mt-1">
+            <span className="text-2xl font-bold font-mono text-[#17211D] dark:text-[#EDF2EE]">
               {summary.total_claims}
-            </p>
-            <p className="text-[11px] text-slate-400">Claims Evaluated</p>
+            </span>
+            <span className="text-xs text-[#58645F] dark:text-[#A7B2AB]">decomposed</span>
           </div>
         </div>
 
-        {/* Multi-category breakdown */}
-        <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 flex flex-col justify-center gap-2">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-            Verdict Distribution
-          </p>
-          <div className="grid grid-cols-3 gap-1.5 text-center text-[11px]">
-            <div className="p-1 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-              <span className="font-bold">{summary.supported_claims}</span> Sup
-            </div>
-            <div className="p-1 rounded bg-rose-500/10 text-rose-400 border border-rose-500/20">
-              <span className="font-bold">{summary.contradicted_claims}</span> Cont
-            </div>
-            <div className="p-1 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">
-              <span className="font-bold">{summary.unsupported_claims}</span> Unsup
-            </div>
+        {/* Metric 4: Supported vs Contradicted */}
+        <div className="p-3 rounded bg-[#EDF1EF] dark:bg-[#202824] border border-[#DCE3DF] dark:border-[#343E38] flex flex-col justify-between">
+          <span className="text-[10px] font-mono uppercase tracking-wider text-[#58645F] dark:text-[#A7B2AB] font-semibold">
+            Grounding Status
+          </span>
+          <div className="flex items-center gap-2 mt-1 font-mono text-xs">
+            <span className="text-[#0E6245] dark:text-[#65B89D] font-bold">{summary.supported_claims} Sup</span>
+            <span className="text-[#C5D0CB] dark:text-[#445149]">&bull;</span>
+            <span className="text-[#9E2222] dark:text-[#F17575] font-bold">{summary.contradicted_claims} Cont</span>
+          </div>
+        </div>
+
+        {/* Metric 5: Unsupported / Ambiguous */}
+        <div className="p-3 rounded bg-[#EDF1EF] dark:bg-[#202824] border border-[#DCE3DF] dark:border-[#343E38] flex flex-col justify-between">
+          <span className="text-[10px] font-mono uppercase tracking-wider text-[#58645F] dark:text-[#A7B2AB] font-semibold">
+            Unresolved
+          </span>
+          <div className="flex items-center gap-2 mt-1 font-mono text-xs">
+            <span className="text-[#965B0A] dark:text-[#E5AC48] font-bold">{summary.unsupported_claims} Unsup</span>
+            <span className="text-[#C5D0CB] dark:text-[#445149]">&bull;</span>
+            <span className="text-[#58645F] dark:text-[#A7B2AB] font-bold">{summary.ambiguous_claims || 0} Amb</span>
+          </div>
+        </div>
+
+        {/* Metric 6: Inter-source Conflicts */}
+        <div className="p-3 rounded bg-[#EDF1EF] dark:bg-[#202824] border border-[#DCE3DF] dark:border-[#343E38] flex flex-col justify-between">
+          <span className="text-[10px] font-mono uppercase tracking-wider text-[#58645F] dark:text-[#A7B2AB] font-semibold">
+            Evidence Conflicts
+          </span>
+          <div className="flex items-center gap-1.5 mt-1">
+            {conflicts.length > 0 ? (
+              <span className="inline-flex items-center gap-1 text-xs font-mono font-bold text-[#965B0A] dark:text-[#E5AC48]">
+                <GitFork className="w-3.5 h-3.5 text-[#965B0A] dark:text-[#E5AC48]" />
+                {conflicts.length} Detected
+              </span>
+            ) : (
+              <span className="text-xs font-mono text-[#58645F] dark:text-[#A7B2AB]">None detected</span>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Findings Warnings (if any) */}
+      {/* Advisory warnings if present */}
       {(consistencyFindings.length > 0 || safetyFindings.length > 0) && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 pt-1">
           {consistencyFindings.length > 0 && (
-            <div className="p-3.5 rounded-lg bg-amber-500/5 border border-amber-500/20 text-xs flex items-start gap-2.5">
-              <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+            <div className="p-2.5 rounded bg-[#FEF6E9] dark:bg-[#B45309]/20 border border-[#F8DCAB] dark:border-[#633910] text-xs flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 text-[#965B0A] dark:text-[#E5AC48] shrink-0 mt-0.5" />
               <div>
-                <p className="font-semibold text-amber-300">
+                <p className="font-semibold text-[#965B0A] dark:text-[#E5AC48]">
                   Consistency Finding ({consistencyFindings.length})
                 </p>
-                <p className="text-slate-300 mt-0.5">
+                <p className="text-[#17211D] dark:text-[#EDF2EE] text-[11px] mt-0.5">
                   {consistencyFindings[0].description}
                 </p>
               </div>
@@ -155,13 +172,13 @@ export const AuditSummaryCard: React.FC<AuditSummaryCardProps> = ({
           )}
 
           {safetyFindings.length > 0 && (
-            <div className="p-3.5 rounded-lg bg-rose-500/5 border border-rose-500/20 text-xs flex items-start gap-2.5">
-              <ShieldAlert className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+            <div className="p-2.5 rounded bg-[#FDF0F0] dark:bg-[#B91C1C]/20 border border-[#F7C5C5] dark:border-[#6B2323] text-xs flex items-start gap-2">
+              <ShieldAlert className="w-4 h-4 text-[#9E2222] dark:text-[#F17575] shrink-0 mt-0.5" />
               <div>
-                <p className="font-semibold text-rose-300">
-                  Safety & Liability Advisory ({safetyFindings.length})
+                <p className="font-semibold text-[#9E2222] dark:text-[#F17575]">
+                  Safety Advisory ({safetyFindings.length})
                 </p>
-                <p className="text-slate-300 mt-0.5">
+                <p className="text-[#17211D] dark:text-[#EDF2EE] text-[11px] mt-0.5">
                   {safetyFindings[0].description}
                 </p>
               </div>
@@ -170,12 +187,13 @@ export const AuditSummaryCard: React.FC<AuditSummaryCardProps> = ({
         </div>
       )}
 
-      {/* High-level takeaway */}
+      {/* Key Takeaway */}
       {summary.key_takeaway && (
-        <div className="p-3 rounded-lg bg-slate-950 text-xs text-slate-300 border-l-4 border-indigo-500 italic">
-          "{summary.key_takeaway}"
+        <div className="p-2.5 rounded bg-[#EDF1EF] dark:bg-[#202824] text-xs text-[#17211D] dark:text-[#EDF2EE] border-l-2 border-[#176B58] dark:border-[#65B89D] italic font-serif">
+          &ldquo;{summary.key_takeaway}&rdquo;
         </div>
       )}
     </div>
   );
 };
+

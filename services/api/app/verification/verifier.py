@@ -7,6 +7,9 @@ from app.schemas import (
     VerdictCategory,
     Source as SourceSchema,
     AuditSummary,
+    PairResultSchema,
+    ConflictDetail,
+    ClaimAutopsySchema,
 )
 from app.verification.providers import (
     VerificationProvider,
@@ -19,6 +22,7 @@ from app.verification.types import (
 )
 from app.verification.mock_engine import generate_mock_audit_findings
 from app.verification.rules import validate_citations
+from app.verification.scoring import compute_trust_score, compute_risk_level
 
 
 class ClaimVerifier:
@@ -110,6 +114,24 @@ class ClaimVerifier:
         if result.verdict == VerdictCategory.UNSUPPORTED:
             validated_evidence_ids = []
 
+        # 6. Build structured evaluation trail
+        trail_schemas: List[PairResultSchema] = []
+        for pr in result.pair_results:
+            rel_str = pr.relation.value if hasattr(pr.relation, "value") else str(pr.relation)
+            trail_schemas.append(
+                PairResultSchema(
+                    evidence_id=pr.evidence_id,
+                    relation=rel_str,
+                    score=pr.score,
+                    rationale=pr.rationale,
+                    contradiction_detail=pr.contradiction_detail,
+                    numerical_finding=pr.numerical_finding,
+                    source_name=pr.source_name,
+                    page_or_section=pr.page_or_section,
+                    excerpt=pr.excerpt
+                )
+            )
+
         return Claim(
             claim_id=c_id,
             claim_text=c_text,
@@ -118,7 +140,10 @@ class ClaimVerifier:
             verdict=result.verdict,
             explanation=result.explanation,
             confidence=result.confidence,
-            evidence_ids=validated_evidence_ids
+            evidence_ids=validated_evidence_ids,
+            evaluation_trail=trail_schemas,
+            conflict=result.conflict,
+            autopsy=result.autopsy
         )
 
     def verify_claims_batch(
@@ -187,6 +212,7 @@ class VerificationEngine:
                 "consistency_findings": [],
                 "safety_findings": [],
                 "summary": AuditSummary().model_dump(),
+                "conflict_map": [],
                 "is_mock": False
             }
 
@@ -282,8 +308,8 @@ class VerificationEngine:
         amb = verdict_counts[VerdictCategory.AMBIGUOUS.value]
         inc = verdict_counts[VerdictCategory.INCONCLUSIVE.value]
 
-        trust_score = max(0.0, min(100.0, round(((sup * 1.0 - cont * 1.5 - unsup * 0.5 - amb * 0.3) / max(1, total)) * 100, 1)))
-        risk_level = "high" if cont > 0 or trust_score < 50 else ("medium" if unsup > 0 or trust_score < 75 else "low")
+        trust_score, decisive_claims = compute_trust_score(sup, cont, unsup)
+        risk_level = compute_risk_level(cont, unsup, trust_score)
 
         # Label takeaway clearly according to the active provider
         provider_name = self.claim_verifier.provider.name
@@ -319,6 +345,7 @@ class VerificationEngine:
             unsupported_claims=unsup,
             ambiguous_claims=amb,
             inconclusive_claims=inc,
+            decisive_claims=decisive_claims,
             trust_score=trust_score,
             risk_level=risk_level,
             key_takeaway=takeaway
@@ -340,6 +367,14 @@ class VerificationEngine:
                     "affected_claim_ids": [c.claim_id]
                 })
 
+        # 6. Aggregate cross-source evidence conflicts
+        conflict_map = []
+        for c in verified_claims:
+            if c.conflict:
+                conf_dict = c.conflict.model_dump() if hasattr(c.conflict, "model_dump") else c.conflict
+                conf_dict["claim_id"] = c.claim_id
+                conflict_map.append(conf_dict)
+
         return {
             "claims": [c.model_dump() for c in verified_claims],
             "evidence": [e.model_dump() for e in used_evidence_map.values()],
@@ -347,6 +382,7 @@ class VerificationEngine:
             "consistency_findings": consistency_findings,
             "safety_findings": safety_findings,
             "summary": summary.model_dump(),
+            "conflict_map": conflict_map,
             "is_mock": False
         }
 

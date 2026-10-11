@@ -5,6 +5,7 @@ from sqlalchemy import Column, String, Text, Boolean, Integer, DateTime, Foreign
 from sqlalchemy.orm import relationship
 from app.database.session import Base
 from app.schemas import AuditResponse, Source as SourceSchema, AuditStatus
+from app.verification.scoring import compute_trust_score
 
 
 class AuditModel(Base):
@@ -34,6 +35,15 @@ class AuditModel(Base):
             except Exception:
                 parsed_results = {}
 
+        summary_dict = parsed_results.get("summary")
+        if summary_dict and isinstance(summary_dict, dict):
+            sup = summary_dict.get("supported_claims", 0)
+            cont = summary_dict.get("contradicted_claims", 0)
+            unsup = summary_dict.get("unsupported_claims", 0)
+            score, decisive = compute_trust_score(sup, cont, unsup)
+            summary_dict["trust_score"] = score
+            summary_dict["decisive_claims"] = decisive
+
         return AuditResponse(
             audit_id=self.id,
             status=AuditStatus(self.status),
@@ -45,7 +55,8 @@ class AuditModel(Base):
             verdicts=parsed_results.get("verdicts", {}),
             consistency_findings=parsed_results.get("consistency_findings", []),
             safety_findings=parsed_results.get("safety_findings", []),
-            summary=parsed_results.get("summary"),
+            summary=summary_dict,
+            conflict_map=parsed_results.get("conflict_map", []),
             report_reference=self.report_reference,
             is_mock=self.is_mock,
             created_at=self.created_at,

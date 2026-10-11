@@ -33,27 +33,27 @@ export const EvidenceViewer: React.FC<EvidenceViewerProps> = ({
 
   if (!evidenceList || evidenceList.length === 0) {
     return (
-      <div className="p-8 text-center text-slate-500 text-xs rounded-xl border border-dashed border-slate-800">
+      <div className="p-8 text-center text-[#58645F] dark:text-[#A7B2AB] text-xs rounded-lg border border-dashed border-[#DCE3DF] dark:border-[#343E38] bg-white dark:bg-[#191F1C]">
         No evidence excerpts retrieved yet.
       </div>
     );
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3.5">
       {/* Contextual notice if currently selected claim has NO citations */}
       {activeClaim && activeClaim.evidence_ids.length === 0 && (
-        <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-300 flex items-start gap-2.5">
-          <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+        <div className="p-3 rounded-lg bg-[#FEF6E9] dark:bg-[#B45309]/20 border border-[#F8DCAB] dark:border-[#633910] text-xs text-[#965B0A] dark:text-[#E5AC48] flex items-start gap-2.5">
+          <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
           <div className="flex-1 min-w-0">
-            <p className="font-semibold text-amber-200">
+            <p className="font-semibold text-[#17211D] dark:text-[#EDF2EE]">
               Selected Claim Has No Direct Citations
             </p>
-            <p className="text-slate-300 mt-1 italic font-sans">
-              "{activeClaim.claim_text}"
+            <p className="mt-1 italic font-sans text-xs text-[#58645F] dark:text-[#A7B2AB]">
+              &ldquo;{activeClaim.claim_text}&rdquo;
             </p>
-            <p className="text-slate-400 text-[11px] mt-1 font-sans">
-              Audit verdict: <span className="font-semibold text-amber-300 uppercase font-mono">{activeClaim.verdict}</span>. No retrieved passages in source files met relevance thresholds for this statement.
+            <p className="text-[11px] mt-1 font-sans text-[#58645F] dark:text-[#A7B2AB]">
+              Audit verdict: <span className="font-semibold uppercase font-mono">{activeClaim.verdict}</span>. No retrieved passages in source files met relevance thresholds for this statement.
             </p>
           </div>
         </div>
@@ -61,14 +61,14 @@ export const EvidenceViewer: React.FC<EvidenceViewerProps> = ({
 
       {/* Contextual indicator if currently selected claim HAS citations */}
       {activeClaim && activeClaim.evidence_ids.length > 0 && (
-        <div className="p-2.5 rounded-lg bg-indigo-950/40 border border-indigo-500/20 text-xs text-indigo-300 flex items-center justify-between">
+        <div className="p-2.5 rounded-lg bg-[#EDF1EF] dark:bg-[#202824] border border-[#DCE3DF] dark:border-[#343E38] text-xs text-[#17211D] dark:text-[#EDF2EE] flex items-center justify-between">
           <div className="flex items-center gap-2 truncate">
-            <Layers className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+            <Layers className="w-3.5 h-3.5 text-[#58645F] dark:text-[#A7B2AB] shrink-0" />
             <span className="truncate">
-              Focusing on evidence for: <strong className="text-white font-sans">"{activeClaim.claim_text.slice(0, 48)}..."</strong>
+              Focusing on evidence for: <strong className="font-sans font-semibold">&ldquo;{activeClaim.claim_text.slice(0, 48)}...&rdquo;</strong>
             </span>
           </div>
-          <span className="text-[10px] font-mono uppercase bg-indigo-500/20 px-2 py-0.5 rounded text-indigo-300 shrink-0">
+          <span className="text-[10px] font-mono uppercase bg-white dark:bg-[#191F1C] border border-[#DCE3DF] dark:border-[#343E38] px-2 py-0.5 rounded text-[#58645F] dark:text-[#A7B2AB] shrink-0">
             {activeClaim.evidence_ids.length} Citation{activeClaim.evidence_ids.length > 1 ? 's' : ''}
           </span>
         </div>
@@ -80,42 +80,91 @@ export const EvidenceViewer: React.FC<EvidenceViewerProps> = ({
           const isActive = activeEvidenceId === ev.evidence_id;
           const referencingClaims = claims.filter((c) => c.evidence_ids.includes(ev.evidence_id));
 
+          // Find specific relation to active claim if available
+          const pairEvaluation = activeClaim?.evaluation_trail?.find(
+            (p) => p.evidence_id === ev.evidence_id
+          );
+          const isCitedByActiveClaim = activeClaim?.evidence_ids.includes(ev.evidence_id);
+
+          let relationBadge = null;
+          if (pairEvaluation) {
+            if (pairEvaluation.relation === 'entails') {
+              relationBadge = (
+                <span className="inline-flex items-center gap-1 text-[10px] font-medium font-mono px-2 py-0.5 rounded bg-[#E8F5EE] dark:bg-[#176B58]/25 text-[#0E6245] dark:text-[#65B89D] border border-[#B7E1CA] dark:border-[#2C5E4E]">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#0E6245] dark:bg-[#65B89D]"></span>
+                  Supporting Evidence
+                </span>
+              );
+            } else if (pairEvaluation.relation === 'contradicts') {
+              relationBadge = (
+                <span className="inline-flex items-center gap-1 text-[10px] font-medium font-mono px-2 py-0.5 rounded bg-[#FDF0F0] dark:bg-[#B91C1C]/25 text-[#9E2222] dark:text-[#F17575] border border-[#F7C5C5] dark:border-[#6B2323]">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#9E2222] dark:bg-[#F17575]"></span>
+                  Contradicting Evidence
+                </span>
+              );
+            } else {
+              relationBadge = (
+                <span className="inline-flex items-center gap-1 text-[10px] font-medium font-mono px-2 py-0.5 rounded bg-[#FEF6E9] dark:bg-[#B45309]/25 text-[#965B0A] dark:text-[#E5AC48] border border-[#F8DCAB] dark:border-[#633910]">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#965B0A] dark:bg-[#E5AC48]"></span>
+                  Insufficient Context
+                </span>
+              );
+            }
+          } else if (isCitedByActiveClaim) {
+            relationBadge = (
+              <span className="inline-flex items-center gap-1 text-[10px] font-medium font-mono px-2 py-0.5 rounded bg-[#EBF5F1] dark:bg-[#19332A] text-[#176B58] dark:text-[#65B89D] border border-[#BCD8CD] dark:border-[#2C5E4E]">
+                Direct Citation
+              </span>
+            );
+          }
+
           return (
             <div
               key={ev.evidence_id}
               id={`evidence-${ev.evidence_id}`}
               onClick={() => onSelectEvidence && onSelectEvidence(ev.evidence_id)}
-              className={`p-4 rounded-xl border transition cursor-pointer flex flex-col gap-3 ${
+              className={`p-3.5 rounded-lg border transition cursor-pointer flex flex-col gap-2.5 shadow-xs ${
                 isActive
-                  ? 'bg-slate-800/95 border-indigo-500 ring-1 ring-indigo-500 shadow-md shadow-indigo-500/10'
-                  : 'bg-slate-900/60 border-slate-800 hover:border-slate-700'
+                  ? 'bg-[#EDF1EF] dark:bg-[#202824] border-[#176B58] dark:border-[#65B89D] ring-1 ring-[#176B58] dark:ring-[#65B89D]'
+                  : 'bg-white dark:bg-[#191F1C] border-[#DCE3DF] dark:border-[#343E38] hover:border-[#BCD8CD] dark:hover:border-[#445149]'
               }`}
             >
               {/* Source info & relevance */}
-              <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
                 <div className="flex items-center gap-2 min-w-0">
-                  <BookOpen className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
-                  <span className="text-xs font-semibold text-slate-200 truncate">
+                  <BookOpen className="w-3.5 h-3.5 text-[#58645F] dark:text-[#A7B2AB] shrink-0" />
+                  <span className="text-xs font-semibold text-[#17211D] dark:text-[#EDF2EE] truncate">
                     {ev.source_name}
                   </span>
-                  <span className="text-[11px] font-medium text-indigo-300 bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20 shrink-0">
+                  <span className="text-[10px] font-mono text-[#58645F] dark:text-[#A7B2AB] bg-[#EDF1EF] dark:bg-[#202824] px-2 py-0.5 rounded border border-[#DCE3DF] dark:border-[#343E38] shrink-0">
                     {ev.page_or_section}
                   </span>
                 </div>
-                <span className="text-[11px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 shrink-0">
-                  {Math.round(ev.relevance_score * 100)}% match
-                </span>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  {relationBadge}
+                  <span className="text-[10px] font-mono text-[#0E6245] dark:text-[#65B89D] bg-[#E8F5EE] dark:bg-[#176B58]/25 px-2 py-0.5 rounded border border-[#B7E1CA] dark:border-[#2C5E4E] shrink-0 font-semibold">
+                    {Math.round(ev.relevance_score * 100)}% match
+                  </span>
+                </div>
               </div>
 
               {/* Excerpt text */}
-              <div className="p-3 rounded-lg bg-slate-950 font-mono text-xs text-slate-300 leading-relaxed border border-slate-800/80">
-                "{ev.text}"
+              <div className="p-3 rounded bg-[#EDF1EF] dark:bg-[#202824] font-sans text-xs text-[#17211D] dark:text-[#EDF2EE] leading-relaxed border border-[#DCE3DF] dark:border-[#343E38]">
+                &ldquo;{ev.text}&rdquo;
               </div>
+
+              {/* Finding notes if available from pair evaluation */}
+              {pairEvaluation?.rationale && (
+                <div className="text-[11px] text-[#58645F] dark:text-[#A7B2AB] italic px-1">
+                  Reasoning: {pairEvaluation.rationale}
+                </div>
+              )}
 
               {/* Bidirectional Linking: Referencing Claims */}
               {referencingClaims.length > 0 && (
-                <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-slate-800/70">
-                  <span className="text-[11px] text-slate-400 font-medium">Cited by:</span>
+                <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-[#DCE3DF] dark:border-[#343E38]">
+                  <span className="text-[10px] text-[#58645F] dark:text-[#A7B2AB] font-mono">Cited in:</span>
                   {referencingClaims.map((rc) => {
                     const claimIdx = claims.findIndex((c) => c.claim_id === rc.claim_id);
                     const isCurrentClaim = rc.claim_id === selectedClaimId;
@@ -127,17 +176,17 @@ export const EvidenceViewer: React.FC<EvidenceViewerProps> = ({
                           if (onJumpToClaim) onJumpToClaim(rc.claim_id);
                         }}
                         title={`Jump to claim: "${rc.claim_text}"`}
-                        className={`px-2 py-0.5 rounded text-[11px] font-medium border flex items-center gap-1 transition ${
+                        className={`px-2 py-0.5 rounded text-[10px] font-mono border flex items-center gap-1 transition shadow-xs ${
                           isCurrentClaim
-                            ? 'bg-indigo-600/30 text-indigo-200 border-indigo-500 ring-1 ring-indigo-500/40'
-                            : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
+                            ? 'bg-[#176B58] text-white dark:bg-[#65B89D] dark:text-[#0E1A15] border-[#176B58] dark:border-[#65B89D] font-semibold'
+                            : 'bg-white dark:bg-[#191F1C] hover:bg-[#EAEFEA] dark:hover:bg-[#202824] text-[#58645F] dark:text-[#A7B2AB] hover:text-[#17211D] dark:hover:text-[#EDF2EE] border-[#DCE3DF] dark:border-[#343E38]'
                         }`}
                       >
                         <span>
                           Claim {claimIdx >= 0 ? `#${claimIdx + 1}` : `[${rc.start_offset}:${rc.end_offset}]`}
                         </span>
-                        <span className="font-mono text-[10px] text-slate-400">({rc.verdict})</span>
-                        <ArrowRight className="w-3 h-3 text-indigo-400" />
+                        <span className="opacity-80">({rc.verdict})</span>
+                        <ArrowRight className="w-2.5 h-2.5 opacity-80" />
                       </button>
                     );
                   })}
@@ -150,3 +199,4 @@ export const EvidenceViewer: React.FC<EvidenceViewerProps> = ({
     </div>
   );
 };
+

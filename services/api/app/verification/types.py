@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import List, Optional
+from typing import List, Optional, Any
 from pydantic import BaseModel, Field
 from app.schemas import VerdictCategory
 
@@ -21,6 +21,9 @@ class PairNLIResult(BaseModel):
     rationale: str = Field(..., description="Short justification grounded in the passage")
     contradiction_detail: Optional[str] = Field(None, description="Details if contradiction detected")
     numerical_finding: Optional[str] = Field(None, description="Numerical/quantity check finding if applicable")
+    source_name: Optional[str] = Field(None, description="Source document name")
+    page_or_section: Optional[str] = Field(None, description="Location citation")
+    excerpt: Optional[str] = Field(None, description="Passage excerpt")
 
 
 class ClaimVerificationResult(BaseModel):
@@ -32,6 +35,8 @@ class ClaimVerificationResult(BaseModel):
     confidence: float = Field(..., ge=0.0, le=1.0, description="Calibrated confidence score")
     evidence_ids: List[str] = Field(default_factory=list, description="IDs of source evidence actually used")
     pair_results: List[PairNLIResult] = Field(default_factory=list, description="Detailed pair-level assessments")
+    conflict: Optional[Any] = Field(None, description="Cross-source conflict findings")
+    autopsy: Optional[Any] = Field(None, description="Detailed autopsy findings")
 
 
 class VerificationError(Exception):

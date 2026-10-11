@@ -8,25 +8,44 @@ export default {
   theme: {
     extend: {
       colors: {
+        theme: {
+          canvas: 'var(--bg-canvas)',
+          surface: 'var(--bg-surface)',
+          elevated: 'var(--bg-elevated)',
+          subtle: 'var(--bg-subtle)',
+          sidebar: 'var(--bg-sidebar)',
+          hover: 'var(--bg-hover)',
+          active: 'var(--bg-active)',
+          border: 'var(--border-subtle)',
+          borderStrong: 'var(--border-strong)',
+          textPrimary: 'var(--text-primary)',
+          textSecondary: 'var(--text-secondary)',
+          textMuted: 'var(--text-muted)',
+          accent: 'var(--accent)',
+          accentHover: 'var(--accent-hover)',
+          accentSubtle: 'var(--accent-subtle)',
+          accentBorder: 'var(--accent-border)',
+          accentText: 'var(--accent-text)',
+        },
         brand: {
-          50: '#eef2ff',
-          100: '#e0e7ff',
-          200: '#c7d2fe',
-          300: '#a5b4fc',
-          400: '#818cf8',
-          500: '#6366f1',
-          600: '#4f46e5',
-          700: '#4338ca',
-          800: '#3730a3',
-          900: '#312e81',
-          950: '#1e1b4b',
+          50: '#EBF5F1',
+          100: '#D5ECE3',
+          200: '#B2DDD0',
+          300: '#8BCABB',
+          400: '#65B89D',
+          500: '#3D9E80',
+          600: '#268469',
+          700: '#176B58',
+          800: '#125546',
+          900: '#0E4035',
+          950: '#07241E',
         },
         verdict: {
-          supported: '#10b981',      // Emerald green
-          contradicted: '#ef4444',   // Red
-          unsupported: '#f59e0b',    // Amber
-          ambiguous: '#8b5cf6',      // Purple
-          inconclusive: '#64748b',   // Slate gray
+          supported: 'var(--verdict-sup-text)',
+          contradicted: 'var(--verdict-cont-text)',
+          unsupported: 'var(--verdict-unsup-text)',
+          ambiguous: 'var(--verdict-amb-text)',
+          inconclusive: 'var(--verdict-inc-text)',
         }
       },
       fontFamily: {

@@ -216,3 +216,89 @@ def test_missing_evidence_versus_contradictory_evidence(verifier):
     )
     assert res_contradicted.verdict == VerdictCategory.CONTRADICTED
     assert "ev_raft" in res_contradicted.evidence_ids
+
+
+def test_adversarial_temporal_mismatch_date(verifier):
+    """
+    Scenario: Quantities match ($50M) but temporal timeframe conflicts (2022 vs 2024).
+    Must NOT be labeled SUPPORTED.
+    """
+    evidence = [
+        Evidence(
+            evidence_id="ev_0",
+            source_id="src_1",
+            source_name="financials.txt",
+            text="In the second fiscal quarter of 2024, company operating revenue was $50M.",
+            page_or_section="Page 3",
+            relevance_score=0.88
+        )
+    ]
+    claim = "In the second fiscal quarter of 2022, operating revenue was $50M."
+    result = verifier.verify_claim(claim, evidence)
+
+    assert result.verdict != VerdictCategory.SUPPORTED
+    assert result.verdict in [VerdictCategory.INCONCLUSIVE, VerdictCategory.UNSUPPORTED, VerdictCategory.CONTRADICTED]
+
+
+def test_adversarial_percentage_direction_reversal(verifier):
+    """
+    Scenario: Exact numbers match (2.5%) but directional vector is inverted (decreased vs rose).
+    Must be CONTRADICTED.
+    """
+    evidence = [
+        Evidence(
+            evidence_id="ev_0",
+            source_id="src_1",
+            source_name="econ.txt",
+            text="Annual consumer price inflation decreased by 2.5% over the observation window.",
+            page_or_section="Section 1.2",
+            relevance_score=0.91
+        )
+    ]
+    claim = "Annual consumer price inflation rose by 2.5% over the observation window."
+    result = verifier.verify_claim(claim, evidence)
+
+    assert result.verdict == VerdictCategory.CONTRADICTED
+    assert "ev_0" in result.evidence_ids
+
+
+def test_adversarial_irrelevant_high_frequency_words(verifier):
+    """
+    Scenario: Shared high-frequency tech terms (throughput, system, safely), but asserts cryptocurrency mining.
+    Must NOT be labeled SUPPORTED.
+    """
+    evidence = [
+        Evidence(
+            evidence_id="ev_0",
+            source_id="src_1",
+            source_name="cluster.txt",
+            text="The distributed database system maintains high-throughput streaming and ensures all customer records are safely stored.",
+            page_or_section="Overview",
+            relevance_score=0.72
+        )
+    ]
+    claim = "The distributed system operates high-throughput cryptocurrency mining and ensures all Bitcoin is safely cashed out."
+    result = verifier.verify_claim(claim, evidence)
+
+    assert result.verdict != VerdictCategory.SUPPORTED
+    assert result.verdict in [VerdictCategory.INCONCLUSIVE, VerdictCategory.UNSUPPORTED]
+
+
+def test_adversarial_partial_numerical_truth_with_fabricated_multiplier(verifier):
+    """
+    Scenario: Base number matches ($500), but time horizon and scope are altered.
+    Must be CONTRADICTED or UNSUPPORTED.
+    """
+    evidence = [
+        Evidence(
+            evidence_id="ev_0",
+            source_id="src_1",
+            source_name="pricing.txt",
+            text="Enterprise software licenses are strictly billed at $500 per year per workstation.",
+            page_or_section="Pricing Table",
+            relevance_score=0.90
+        )
+    ]
+    claim = "Enterprise software licenses cost $500 per decade for unlimited corporate workstations."
+    result = verifier.verify_claim(claim, evidence)
+    assert result.verdict != VerdictCategory.SUPPORTED

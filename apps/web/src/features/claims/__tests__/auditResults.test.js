@@ -2,11 +2,15 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 
-const require = createRequire(import.meta.url);
-const jiti = require('jiti')(process.cwd());
+import { fileURLToPath } from 'node:url';
+import { dirname, resolve } from 'node:path';
 
-// Load project mock fixtures and types
-const { MOCK_INITIAL_AUDIT } = jiti('./src/mocks/sampleData.ts');
+const require = createRequire(import.meta.url);
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const jiti = require('jiti')(__dirname);
+
+// Load project mock fixtures and types using absolute path relative to test file
+const { MOCK_INITIAL_AUDIT } = jiti(resolve(__dirname, '../../../mocks/sampleData.ts'));
 
 // --- Helper Functions Mirroring Component Domain Logic ---
 

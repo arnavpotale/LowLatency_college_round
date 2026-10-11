@@ -1,311 +1,291 @@
 import React, { useState, useEffect } from 'react';
-import { Navbar } from './components/Navbar';
-import { SourceUploader } from './features/sources/SourceUploader';
-import { AuditInputForm } from './features/audit/AuditInputForm';
-import { AuditSummaryCard } from './features/audit/AuditSummaryCard';
-import { AnswerHighlighter } from './features/claims/AnswerHighlighter';
-import { ClaimList } from './features/claims/ClaimList';
-import { EvidenceViewer } from './features/evidence/EvidenceViewer';
+import { RouterProvider, useRouter } from './router/RouterContext';
+import { ThemeProvider } from './theme/ThemeContext';
+import { AppShell } from './components/AppShell';
+import { DashboardPage } from './pages/DashboardPage';
+import { CreateAuditPage } from './pages/CreateAuditPage';
+import { ProcessingPage } from './pages/ProcessingPage';
+import { AuditOverviewPage } from './pages/AuditOverviewPage';
+import { InvestigationPage } from './pages/InvestigationPage';
+import { AllAuditsPage } from './pages/AllAuditsPage';
+import { AdversarialLabPage } from './pages/AdversarialLabPage';
+import { SourcesPage } from './pages/SourcesPage';
+import { ReportsPage } from './pages/ReportsPage';
+import { SettingsPage } from './pages/SettingsPage';
 import { ReportPreviewModal } from './features/reports/ReportPreviewModal';
 import { apiClient } from './services/api';
 import { AuditResponse, HealthResponse } from './types';
 import { MOCK_INITIAL_AUDIT } from './mocks/sampleData';
-import { Layers, CheckCircle2, FileCheck, ShieldAlert } from 'lucide-react';
 
-export const App: React.FC = () => {
-  const [audit, setAudit] = useState<AuditResponse>(MOCK_INITIAL_AUDIT);
+const AppContent: React.FC = () => {
+  const { currentPath, navigate, params } = useRouter();
+
+  const [activeAudit, setActiveAudit] = useState<AuditResponse>(MOCK_INITIAL_AUDIT);
   const [health, setHealth] = useState<HealthResponse | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
   const [selectedClaimId, setSelectedClaimId] = useState<string | null>(null);
-  const [activeEvidenceId, setActiveEvidenceId] = useState<string | null>(null);
-  const [rightTab, setRightTab] = useState<'claims' | 'evidence'>('claims');
-  const [isReportOpen, setIsReportOpen] = useState<boolean>(false);
+  const [isReportModalOpen, setIsReportModalOpen] = useState<boolean>(false);
   const [reportMarkdown, setReportMarkdown] = useState<string>('');
 
-  // Initial check on mount
+  // Initial health check on mount
   useEffect(() => {
-    async function init() {
+    async function checkHealth() {
       const h = await apiClient.getHealth();
       setHealth(h);
     }
-    init();
+    checkHealth();
   }, []);
 
-  // Set default selected claim if claims exist
+  // Sync audit from URL if auditId changes in params
   useEffect(() => {
-    if (audit.claims.length > 0 && !selectedClaimId) {
-      setSelectedClaimId(audit.claims[0].claim_id);
-      if (audit.claims[0].evidence_ids.length > 0) {
-        setActiveEvidenceId(audit.claims[0].evidence_ids[0]);
+    const urlAuditId = params.auditId;
+    if (urlAuditId && urlAuditId !== activeAudit.audit_id) {
+      if (urlAuditId === 'aud_demo_89f1a23') {
+        setActiveAudit(MOCK_INITIAL_AUDIT);
       } else {
-        setActiveEvidenceId(null);
+        apiClient
+          .getAudit(urlAuditId)
+          .then((loaded) => {
+            setActiveAudit(loaded);
+            if (loaded.claims?.length > 0) {
+              setSelectedClaimId(loaded.claims[0].claim_id);
+            }
+          })
+          .catch((err) => {
+            console.warn(`Could not load audit ${urlAuditId} from backend:`, err);
+          });
       }
     }
-  }, [audit.claims, selectedClaimId]);
+  }, [params.auditId, activeAudit.audit_id]);
 
-  // Handle Demo Case Load
-  const handleLoadDemo = async () => {
-    setAudit(MOCK_INITIAL_AUDIT);
+  // Set default selected claim on audit change
+  useEffect(() => {
+    if (activeAudit.claims?.length > 0 && !selectedClaimId) {
+      setSelectedClaimId(activeAudit.claims[0].claim_id);
+    }
+  }, [activeAudit.claims, selectedClaimId]);
+
+  // Load demo case action
+  const handleLoadDemo = () => {
+    setActiveAudit(MOCK_INITIAL_AUDIT);
     setSelectedClaimId(MOCK_INITIAL_AUDIT.claims[0]?.claim_id || null);
-    setActiveEvidenceId(MOCK_INITIAL_AUDIT.claims[0]?.evidence_ids[0] || null);
-    setRightTab('claims');
+    navigate(`/audits/${MOCK_INITIAL_AUDIT.audit_id}/overview`);
   };
 
-  // Upload file handler
-  const handleUploadFile = async (file: File) => {
-    setIsLoading(true);
+  // Open report modal action
+  const handleOpenReportModal = async () => {
     try {
-      const source = await apiClient.uploadSourceFile(audit.audit_id, file);
-      setAudit((prev) => ({
-        ...prev,
-        sources: [...prev.sources, source]
-      }));
-    } finally {
-      setIsLoading(false);
+      if (activeAudit.audit_id === 'aud_demo_89f1a23') {
+        // Pre-compile markdown for demo audit
+        const mockMd = `# Second Opinion — Audit Report: ${activeAudit.title}\n\n` +
+          `**Audit ID:** ${activeAudit.audit_id}\n` +
+          `**Status:** ${activeAudit.status.toUpperCase()}\n` +
+          `**Trust Score:** ${activeAudit.summary?.trust_score !== null && activeAudit.summary?.trust_score !== undefined ? `${Math.round(activeAudit.summary.trust_score)}%` : 'N/A'}\n\n` +
+          `## Executive Findings\n${activeAudit.summary?.key_takeaway || 'Analysis complete.'}\n\n` +
+          `## Investigated Claims\n` +
+          activeAudit.claims.map((c, i) =>
+            `### Claim [${i + 1}]: ${c.verdict.toUpperCase()}\n` +
+            `> "${c.claim_text}"\n\n` +
+            `* **Explanation:** ${c.explanation}\n` +
+            (c.human_review ? `* **Auditor Override:** ${c.human_review.action} by ${c.human_review.reviewer}\n` : '')
+          ).join('\n') +
+          `\n\n## Sources\n` +
+          activeAudit.sources.map(s => `- **${s.filename}** (${s.char_count} chars)`).join('\n');
+        setReportMarkdown(mockMd);
+      } else {
+        const md = await apiClient.getReport(activeAudit.audit_id);
+        setReportMarkdown(md);
+      }
+      setIsReportModalOpen(true);
+    } catch (err: any) {
+      console.error('Failed to open report modal:', err);
     }
   };
 
-  // Add text source handler
-  const handleAddTextSource = async (title: string, content: string) => {
-    setIsLoading(true);
+  // Human Review Auditor Callback
+  const handleSaveReview = async (
+    claimId: string,
+    action: string,
+    notes: string,
+    reviewer: string
+  ) => {
     try {
-      const source = await apiClient.uploadSourceText(audit.audit_id, title, content);
-      setAudit((prev) => ({
-        ...prev,
-        sources: [...prev.sources, source]
-      }));
-    } finally {
-      setIsLoading(false);
+      if (!activeAudit.is_mock) {
+        const updated = await apiClient.submitHumanReview(activeAudit.audit_id, claimId, {
+          action,
+          notes,
+          reviewer
+        });
+        setActiveAudit(updated);
+      } else {
+        // Local state update for mock demonstration mode
+        setActiveAudit((prev) => {
+          const newClaims = prev.claims.map((c) => {
+            if (c.claim_id !== claimId) return c;
+            let newVerdict = c.verdict;
+            if (action === 'override_supported') newVerdict = 'supported';
+            else if (action === 'override_contradicted') newVerdict = 'contradicted';
+            else if (action === 'override_unsupported') newVerdict = 'unsupported';
+
+            return {
+              ...c,
+              verdict: newVerdict,
+              human_review: {
+                action,
+                notes,
+                reviewer,
+                reviewed_at: new Date().toISOString(),
+                original_verdict: c.human_review?.original_verdict || c.verdict
+              }
+            };
+          });
+
+          return {
+            ...prev,
+            claims: newClaims
+          };
+        });
+      }
+    } catch (err: any) {
+      console.error('Failed to submit human review:', err);
+      throw err;
     }
   };
 
-    // Run Audit
-     const handleRunAudit = async (title: string, answerText: string) => {
-    setIsLoading(true);
-    try {
-      // 1. Create a new audit in the backend
-      const newAudit = await apiClient.createAudit(title);
-      setAudit(newAudit);
+  const isEngineOnline = health?.status === 'healthy';
 
-      // 2. Submit the answer using the new audit ID
-      await apiClient.submitAnswer(newAudit.audit_id, answerText);
-
-      // 3. Run the analysis
-      const updatedAudit = await apiClient.runAnalysis(newAudit.audit_id);
-
-      // 4. Update the results
-      setAudit({ ...updatedAudit, title });
-      setSelectedClaimId(updatedAudit.claims[0]?.claim_id ?? null);
-      setActiveEvidenceId(updatedAudit.claims[0]?.evidence_ids[0] ?? null);
-      setRightTab('claims');
-    } catch (err) {
-      console.error('Audit error:', err);
-    } finally {
-      setIsLoading(false);
+  // Route Dispatcher
+  const renderCurrentPage = () => {
+    // 1. Dashboard
+    if (currentPath === '/' || currentPath === '/dashboard') {
+      return (
+        <DashboardPage
+          onSelectAudit={(a) => setActiveAudit(a)}
+          onLoadDemo={handleLoadDemo}
+        />
+      );
     }
-  };
 
-  // Open Report Modal
-  const handleOpenReport = async () => {
-    const reportText = await apiClient.getReport(audit.audit_id);
-    setReportMarkdown(reportText);
-    setIsReportOpen(true);
-  };
-
-  // Claim click handler
-  const handleSelectClaim = (claimId: string) => {
-    setSelectedClaimId(claimId);
-    const targetClaim = audit.claims.find((c) => c.claim_id === claimId);
-    if (targetClaim && targetClaim.evidence_ids.length > 0) {
-      setActiveEvidenceId(targetClaim.evidence_ids[0]);
-    } else {
-      setActiveEvidenceId(null);
+    // 2. Create Audit Wizard
+    if (currentPath === '/audits/new') {
+      return (
+        <CreateAuditPage
+          onAuditCreated={(a) => {
+            setActiveAudit(a);
+          }}
+          onLoadDemo={handleLoadDemo}
+        />
+      );
     }
-  };
 
-  // Evidence pill click handler
-  const handleEvidenceClick = (evidenceId: string) => {
-    setActiveEvidenceId(evidenceId);
-    setRightTab('evidence');
-  };
+    // 3. All Audits Repository
+    if (currentPath === '/audits') {
+      return (
+        <AllAuditsPage
+          onSelectAudit={(a) => setActiveAudit(a)}
+          onLoadDemo={handleLoadDemo}
+        />
+      );
+    }
 
-  // Bidirectional navigation: jump from Evidence item to Claim
-  const handleJumpToClaim = (claimId: string) => {
-    handleSelectClaim(claimId);
-    setRightTab('claims');
-  };
+    // 4. Verification In-Progress
+    if (currentPath.startsWith('/audits/') && currentPath.endsWith('/processing')) {
+      return (
+        <ProcessingPage
+          onAuditCompleted={(completedAudit) => {
+            setActiveAudit(completedAudit);
+          }}
+        />
+      );
+    }
 
-  const hasResults = audit.status === 'completed' && audit.claims.length > 0;
+    // 5. Audit Results Overview
+    if (currentPath.startsWith('/audits/') && currentPath.endsWith('/overview')) {
+      return (
+        <AuditOverviewPage
+          audit={activeAudit}
+          onSelectClaim={(cid) => setSelectedClaimId(cid)}
+          onOpenReportModal={handleOpenReportModal}
+        />
+      );
+    }
+
+    // 6. Claim Investigation Workspace
+    if (currentPath.startsWith('/audits/') && (currentPath.includes('/investigate') || currentPath.includes('/claims'))) {
+      return (
+        <InvestigationPage
+          audit={activeAudit}
+          selectedClaimId={selectedClaimId}
+          onSelectClaim={(cid) => setSelectedClaimId(cid)}
+          onSaveReview={handleSaveReview}
+          onOpenReportModal={handleOpenReportModal}
+        />
+      );
+    }
+
+    // 7. Adversarial Lab
+    if (currentPath.startsWith('/adversarial-lab')) {
+      return <AdversarialLabPage />;
+    }
+
+    // 8. Sources Library
+    if (currentPath.startsWith('/sources')) {
+      return (
+        <SourcesPage
+          activeAudit={activeAudit}
+          onSelectAudit={(a) => setActiveAudit(a)}
+        />
+      );
+    }
+
+    // 9. Reports Archive
+    if (currentPath.startsWith('/reports')) {
+      return <ReportsPage activeAudit={activeAudit} />;
+    }
+
+    // 10. Settings & Diagnostics
+    if (currentPath.startsWith('/settings')) {
+      return <SettingsPage />;
+    }
+
+    // Fallback: Dashboard
+    return (
+      <DashboardPage
+        onSelectAudit={(a) => setActiveAudit(a)}
+        onLoadDemo={handleLoadDemo}
+      />
+    );
+  };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
-      <Navbar
-        health={health}
-        onLoadDemo={handleLoadDemo}
-        onOpenReport={handleOpenReport}
-        hasCompletedAudit={hasResults}
-      />
+    <AppShell
+      activeAudit={activeAudit}
+      onSelectAudit={(a) => setActiveAudit(a)}
+      onLoadDemo={handleLoadDemo}
+      onOpenReportModal={handleOpenReportModal}
+      isEngineOnline={isEngineOnline}
+    >
+      {renderCurrentPage()}
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full flex flex-col gap-6">
-        {/* Step 1 & 2 Inputs: Sources and AI Answer Form */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <SourceUploader
-            sources={audit.sources}
-            onUploadFile={handleUploadFile}
-            onAddTextSource={handleAddTextSource}
-            isLoading={isLoading}
-          />
+      {/* Report Modal */}
+      {isReportModalOpen && (
+        <ReportPreviewModal
+          isOpen={isReportModalOpen}
+          reportMarkdown={reportMarkdown}
+          audit={activeAudit}
+          onClose={() => setIsReportModalOpen(false)}
+        />
+      )}
+    </AppShell>
+  );
+};
 
-          <AuditInputForm
-            initialTitle={audit.title || ''}
-            initialAnswer={audit.original_answer || ''}
-            onSubmit={handleRunAudit}
-            isLoading={isLoading}
-            hasSources={audit.sources.length > 0}
-          />
-        </div>
-
-        {/* Audit Results View (Shown when audit is analyzed) */}
-        {hasResults && audit.summary && (
-          <div className="flex flex-col gap-6 pt-2">
-            {/* Top Summary Card */}
-            <AuditSummaryCard
-              summary={audit.summary}
-              consistencyFindings={audit.consistency_findings}
-              safetyFindings={audit.safety_findings}
-              isMock={audit.is_mock}
-            />
-
-            {/* Main Interactive Split Inspection Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-              {/* Left Column: Original Answer with Offset Highlighting */}
-              <div className="lg:col-span-5 flex flex-col gap-4">
-                <div className="bg-slate-900/60 rounded-xl border border-slate-800 p-5 flex flex-col gap-3">
-                  <div className="flex items-center justify-between">
-                    <h2 className="text-sm font-semibold text-white flex items-center gap-2">
-                      <FileCheck className="w-4 h-4 text-indigo-400" />
-                      Answer Offset Highlighter
-                    </h2>
-                    <span className="text-[11px] text-slate-400">
-                      Click text spans to inspect
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-400">
-                    Exact character offsets <span className="font-mono text-slate-300">[start:end]</span> anchored to original LLM answer:
-                  </p>
-                  <AnswerHighlighter
-                    originalAnswer={audit.original_answer}
-                    claims={audit.claims}
-                    selectedClaimId={selectedClaimId}
-                    onSelectClaim={handleSelectClaim}
-                  />
-                </div>
-
-                {/* Safety & Consistency Findings Section */}
-                {(audit.safety_findings.length > 0 || audit.consistency_findings.length > 0) && (
-                  <div className="bg-slate-900/60 rounded-xl border border-slate-800 p-5 flex flex-col gap-3">
-                    <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-                      <ShieldAlert className="w-4 h-4 text-rose-400" />
-                      Risk & Consistency Audits
-                    </h3>
-                    <div className="space-y-2 text-xs">
-                      {audit.safety_findings.map((sf) => (
-                        <div key={sf.finding_id} className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-300">
-                          <div className="flex items-center justify-between font-semibold">
-                            <span>{sf.category.replace('_', ' ').toUpperCase()}</span>
-                            <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-rose-500/20">{sf.severity}</span>
-                          </div>
-                          <p className="mt-1 text-slate-300">{sf.description}</p>
-                          <p className="mt-1.5 text-[11px] text-rose-400 italic font-mono">Advisory: {sf.recommendation}</p>
-                        </div>
-                      ))}
-                      {audit.consistency_findings.map((cf) => (
-                        <div key={cf.finding_id} className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-300">
-                          <div className="flex items-center justify-between font-semibold">
-                            <span>{cf.finding_type.replace('_', ' ').toUpperCase()}</span>
-                            <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-amber-500/20">{cf.severity}</span>
-                          </div>
-                          <p className="mt-1 text-slate-300">{cf.description}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Right Column: Claims & Evidence Tabs */}
-              <div className="lg:col-span-7 bg-slate-900/60 rounded-xl border border-slate-800 p-5 flex flex-col gap-4">
-                <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setRightTab('claims')}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition ${
-                        rightTab === 'claims'
-                          ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
-                          : 'text-slate-400 hover:text-slate-200'
-                      }`}
-                    >
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      <span>Claims & Verdicts ({audit.claims.length})</span>
-                    </button>
-                    <button
-                      onClick={() => setRightTab('evidence')}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition ${
-                        rightTab === 'evidence'
-                          ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
-                          : 'text-slate-400 hover:text-slate-200'
-                      }`}
-                    >
-                      <Layers className="w-3.5 h-3.5" />
-                      <span>Evidence Base ({audit.evidence.length})</span>
-                    </button>
-                  </div>
-
-                  <button
-                    onClick={handleOpenReport}
-                    className="text-xs text-indigo-400 hover:text-indigo-300 font-medium underline"
-                  >
-                    View Full Report
-                  </button>
-                </div>
-
-                {rightTab === 'claims' ? (
-                  <ClaimList
-                    claims={audit.claims}
-                    evidenceList={audit.evidence}
-                    selectedClaimId={selectedClaimId}
-                    onSelectClaim={handleSelectClaim}
-                    onEvidenceClick={handleEvidenceClick}
-                  />
-                ) : (
-                  <EvidenceViewer
-                    evidenceList={audit.evidence}
-                    activeEvidenceId={activeEvidenceId}
-                    onSelectEvidence={(id) => setActiveEvidenceId(id)}
-                    claims={audit.claims}
-                    selectedClaimId={selectedClaimId}
-                    onJumpToClaim={handleJumpToClaim}
-                  />
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-      </main>
-
-      {/* Audit Report Modal */}
-      <ReportPreviewModal
-        audit={audit}
-        reportMarkdown={reportMarkdown}
-        isOpen={isReportOpen}
-        onClose={() => setIsReportOpen(false)}
-      />
-
-      {/* Footer */}
-      <footer className="border-t border-slate-800/80 bg-slate-950 py-4 text-center text-xs text-slate-500">
-        <p>Second Opinion — AI Answer Verification Platform &bull; College Round Foundation</p>
-      </footer>
-    </div>
+export const App: React.FC = () => {
+  return (
+    <ThemeProvider>
+      <RouterProvider>
+        <AppContent />
+      </RouterProvider>
+    </ThemeProvider>
   );
 };
 

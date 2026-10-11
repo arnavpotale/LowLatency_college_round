@@ -29,20 +29,27 @@ Current RAG (Retrieval-Augmented Generation) systems lack transparent verificati
 
 ---
 
-## 3. Key Features (CRCE Problem Statement Alignment)
+## 3. Key Features & Capabilities
 
-1. **Atomic Claim Decomposition**: Automatically parses complex, compound AI answers into atomic factual claims while preserving exact Unicode character offsets `[start_offset:end_offset]`.
+1. **Atomic Claim Decomposition**: Automatically parses complex, compound AI answers into atomic factual claims while preserving exact Unicode character offsets `[start_offset:end_offset]` to prevent emoji or multibyte text drift.
 2. **Multi-Category Evidence Verdicts**: Categorizes each claim into one of five distinct categories:
    - `supported`: Directly corroborated by primary source text.
    - `contradicted`: Directly refuted by verified source facts.
    - `unsupported`: Extrapolations or assertions absent from the evidence base.
    - `ambiguous`: Statements with multiple conflicting interpretations.
    - `inconclusive`: Evidence is tangentially relevant but insufficient.
-3. **Interactive Answer Offset Highlighter**: Visualizes verdicts directly within the original AI answer text using color-coded spans anchored to character positions.
-4. **Primary Source Grounding & Citation**: Links every verdict to specific source documents, page numbers, and exact text excerpts.
+3. **Interactive Answer Offset Highlighter**: Visualizes verdicts directly within the original AI answer text using color-coded spans anchored to exact character positions.
+4. **Primary Source Grounding & Citation**: Links every verdict to specific source documents, page numbers, and exact text excerpts with bidirectional jump navigation.
 5. **Deterministic Consistency & Numerical Validation**: Detects arithmetic errors, percentage discrepancies, and internal self-contradictions.
 6. **Safety & Liability Guardrails**: Flags high-risk advice (e.g., unauthorized drug dosages, financial guarantees) as independent risk warnings rather than conflating safety with factual truth.
-7. **Comprehensive Audit Reporting**: Compiles executive summaries, trust scores (0–100), risk levels, and exportable markdown audit reports.
+7. **Normalized Reliability Trust Score**: Quantifies verification confidence with a mathematically sound, non-negative metric:
+   $$\text{trust\_score} = \frac{\text{supported}}{\text{supported} + \text{contradicted} + \text{unsupported}} \times 100$$
+   Excludes ambiguous and inconclusive assertions from the denominator and distinguishes between an actively calculated `0.0%` and an unavailable `N/A`.
+8. **Multi-Format Enterprise Reporting**: One-click generation and download of formal **Markdown**, plain **TXT**, formatted Microsoft Word (**DOCX**), and publication-ready **PDF** audit dossiers.
+9. **Adversarial Benchmark Stress Lab**: 10 automated adversarial edge cases evaluating negation handling, temporal drift, unit mismatches, and false entailment.
+10. **Research-Grade Design System**: Accessible, restrained aesthetic with native **Light** (`#F6F7F8` canvas / `#FFFFFF` surface), **Dark** (`#111614` canvas / `#191F1C` surface), and automatic **System** OS preference synchronization.
+11. **Human-in-the-Loop Governance**: Compliance drawer enabling human auditors to record notes and override machine verdicts while maintaining audit trail integrity.
+12. **Five-Minute Presentation Guide**: Complete rehearsal guide and judge presentation script available in [docs/presentation-script.md](docs/presentation-script.md).
 
 ---
 
@@ -395,28 +402,44 @@ Full contract specifications are in [docs/api-contract.md](docs/api-contract.md)
 
 ## 13. Testing and Build Commands
 
-### Backend Automated Tests
+### Backend Automated Tests (158 Tests)
 ```bash
 # From workspace root:
-PYTHONPATH=services/api ./services/api/.venv/bin/pytest services/api/tests -v
+./services/api/.venv/bin/pytest services/api/tests -v
 
 # Or from inside services/api:
 cd services/api
 pytest tests/ -v
 ```
-**Test Coverage Includes:**
+**Test Coverage Includes (158 passing test cases):**
 - System health & root endpoints (`test_health.py`)
 - Full audit session lifecycle (`test_audits.py`)
-- Source upload validation (file size and format checks)
-- Character offset slice integrity checks
-- Error handling for missing inputs and unsupported extensions
+- Source upload validation (PDF, DOCX, TXT, MD) & sanitization
+- Multi-passage reasoning & hybrid BM25 / vector retrieval (`test_hybrid_retrieval.py`, `test_multi_passage_reasoning.py`)
+- Character offset slice integrity checks & Unicode emoji boundaries
+- Deterministic numerical conflict rules & false entailment regressions
+- Normalized trust score calculation, persistence backfills, and edge-cases (`test_trust_score.py`)
+- Multi-format report export fidelity (Markdown, TXT, DOCX, PDF) (`test_reporting.py`)
 
-### Frontend Build & Typechecking
+### Frontend Automated Tests (26 Tests)
+```bash
+cd apps/web
+npm test
+```
+**Test Coverage Includes (26 passing test cases):**
+- Verdict category filtering & aggregation
+- Interactive claim selection & active evidence binding
+- Bidirectional citation linking & jump-to-claim actions
+- Ungrounded claims & missing evidence alert banners
+- Multi-byte Unicode character offsets & CRLF compensation
+- Normalized trust score domain logic, coverage counts, and N/A fallbacks
+
+### Frontend Production Build & Typechecking
 ```bash
 cd apps/web
 npm run build
 ```
-Executes TypeScript compilation (`tsc`) and Vite production bundle optimization.
+Executes strict TypeScript compilation (`tsc`) and Vite production bundle optimization (zero errors/warnings).
 
 ### Evaluation Benchmark Harness
 ```bash

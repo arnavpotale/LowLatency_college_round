@@ -5,7 +5,7 @@ import uuid
 import logging
 from datetime import datetime
 from typing import Optional, List
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status, Query, Response
 from fastapi.responses import PlainTextResponse
 from sqlalchemy.orm import Session
 
@@ -18,11 +18,20 @@ from app.schemas import (
     AuditResponse,
     Source as SourceSchema,
     SourceCreateText,
-    AuditStatus
+    AuditStatus,
+    HumanReviewInput
 )
 from app.ingestion.parser import extract_text_from_file, sanitize_filename
 from app.verification import default_verifier, get_verification_engine, ProviderUnavailableError
-from app.reporting.generator import generate_audit_markdown_report
+from app.verification.scoring import compute_trust_score, compute_risk_level
+from app.reporting.generator import (
+    generate_audit_markdown_report,
+    generate_executive_markdown_report,
+    generate_txt_report,
+    generate_docx_report,
+    generate_pdf_report
+)
+from app.verification.adversarial_suite import ADVERSARIAL_BENCHMARK_CASES, run_adversarial_suite
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/audits", tags=["Audits"])
@@ -46,6 +55,13 @@ def create_audit(payload: Optional[AuditCreate] = None, db: Session = Depends(ge
     db.commit()
     db.refresh(audit)
     return audit.to_schema()
+
+
+@router.get("", response_model=List[AuditResponse])
+def list_audits(limit: int = 50, db: Session = Depends(get_db)):
+    """List recent audit sessions, ordered by creation date descending."""
+    audits = db.query(AuditModel).order_by(AuditModel.created_at.desc()).limit(limit).all()
+    return [a.to_schema() for a in audits]
 
 
 @router.post("/{audit_id}/sources", response_model=SourceSchema, status_code=status.HTTP_201_CREATED)
@@ -140,6 +156,22 @@ async def upload_source(
     return source.to_schema()
 
 
+@router.delete("/{audit_id}/sources/{source_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_source(audit_id: str, source_id: str, db: Session = Depends(get_db)):
+    """Remove a source document from an in-progress audit."""
+    source = db.query(SourceModel).filter(SourceModel.id == source_id, SourceModel.audit_id == audit_id).first()
+    if not source:
+        raise HTTPException(status_code=404, detail="Source not found")
+    if source.file_path and os.path.exists(source.file_path):
+        try:
+            os.remove(source.file_path)
+        except OSError:
+            pass
+    db.delete(source)
+    db.commit()
+    return None
+
+
 @router.post("/{audit_id}/answer", response_model=AuditResponse)
 def submit_answer(audit_id: str, payload: AnswerInput, db: Session = Depends(get_db)):
     """Submit or update the AI-generated answer for verification."""
@@ -211,6 +243,21 @@ def analyze_audit(audit_id: str, db: Session = Depends(get_db)):
     return audit.to_schema()
 
 
+@router.get("/adversarial-lab/cases")
+def get_adversarial_cases():
+    """Returns curated adversarial benchmark cases for stress-testing verification."""
+    return {"cases": ADVERSARIAL_BENCHMARK_CASES}
+
+
+@router.post("/adversarial-lab/run")
+def run_adversarial_lab():
+    """
+    Executes live verification against the adversarial stress test suite.
+    Runs the genuine verification engine and returns pass/fail and latency results.
+    """
+    return run_adversarial_suite()
+
+
 @router.get("/{audit_id}", response_model=AuditResponse)
 def get_audit(audit_id: str, db: Session = Depends(get_db)):
     """Fetch audit session details and current state."""
@@ -229,12 +276,130 @@ def get_audit_results(audit_id: str, db: Session = Depends(get_db)):
     return audit.to_schema()
 
 
-@router.get("/{audit_id}/report", response_class=PlainTextResponse)
-def get_audit_report(audit_id: str, db: Session = Depends(get_db)):
-    """Fetch human-readable Markdown report for the audit."""
+@router.get("/{audit_id}/report")
+def get_audit_report(
+    audit_id: str,
+    format: str = Query("markdown", description="Report format: markdown, txt, docx, pdf"),
+    type: str = Query("detailed", description="Report scope: detailed or executive"),
+    db: Session = Depends(get_db)
+):
+    """Fetch structured audit report in Markdown, TXT, DOCX, or PDF format."""
     audit = db.query(AuditModel).filter(AuditModel.id == audit_id).first()
     if not audit:
         raise HTTPException(status_code=404, detail="Audit not found")
     
     schema = audit.to_schema()
-    return generate_audit_markdown_report(schema)
+    fmt = format.lower().strip()
+    scope = type.lower().strip()
+    if scope not in ("detailed", "executive"):
+        scope = "detailed"
+
+    if fmt == "docx":
+        content_bytes = generate_docx_report(schema, report_type=scope)
+        filename = f"audit_{audit_id[:8]}_{scope}.docx"
+        return Response(
+            content=content_bytes,
+            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            headers={"Content-Disposition": f"attachment; filename=\"{filename}\""}
+        )
+    elif fmt == "pdf":
+        pdf_bytes = generate_pdf_report(schema, report_type=scope)
+        filename = f"audit_{audit_id[:8]}_{scope}.pdf"
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f"attachment; filename=\"{filename}\""}
+        )
+    elif fmt == "txt":
+        txt_content = generate_txt_report(schema, report_type=scope)
+        return PlainTextResponse(content=txt_content, media_type="text/plain")
+    else:  # markdown default
+        if scope == "executive":
+            md_content = generate_executive_markdown_report(schema)
+        else:
+            md_content = generate_audit_markdown_report(schema)
+        return PlainTextResponse(content=md_content, media_type="text/markdown")
+
+
+@router.post("/{audit_id}/claims/{claim_id}/review", response_model=AuditResponse)
+def review_claim(
+    audit_id: str,
+    claim_id: str,
+    payload: HumanReviewInput,
+    db: Session = Depends(get_db)
+):
+    """
+    Records a human auditor's review judgment, notes, or verdict override on a specific claim.
+    Preserves the original machine verdict while allowing human override.
+    """
+    audit = db.query(AuditModel).filter(AuditModel.id == audit_id).first()
+    if not audit:
+        raise HTTPException(status_code=404, detail="Audit not found")
+
+    if not audit.results_json:
+        raise HTTPException(status_code=400, detail="Audit has not been analyzed yet")
+
+    try:
+        results = json.loads(audit.results_json)
+    except Exception:
+        raise HTTPException(status_code=500, detail="Failed to parse audit results JSON")
+
+    claims = results.get("claims", [])
+    target_claim = None
+    for c in claims:
+        if c.get("claim_id") == claim_id:
+            target_claim = c
+            break
+
+    if not target_claim:
+        raise HTTPException(status_code=404, detail=f"Claim '{claim_id}' not found in audit")
+
+    original_verdict = target_claim.get("verdict", "unsupported")
+    review_record = {
+        "action": payload.action,
+        "notes": payload.notes or "",
+        "reviewer": payload.reviewer or "Human Auditor",
+        "reviewed_at": datetime.utcnow().isoformat(),
+        "original_verdict": original_verdict
+    }
+
+    target_claim["human_review"] = review_record
+
+    # If reviewer explicitly overrides verdict, update claim verdict
+    if payload.action == "override_supported":
+        target_claim["verdict"] = "supported"
+    elif payload.action == "override_contradicted":
+        target_claim["verdict"] = "contradicted"
+    elif payload.action == "override_unsupported":
+        target_claim["verdict"] = "unsupported"
+
+    # Re-tally verdicts
+    verdict_counts = {}
+    for c in claims:
+        v = c.get("verdict", "unsupported")
+        verdict_counts[v] = verdict_counts.get(v, 0) + 1
+    results["verdicts"] = verdict_counts
+    results["claims"] = claims
+
+    sup = verdict_counts.get("supported", 0)
+    cont = verdict_counts.get("contradicted", 0)
+    unsup = verdict_counts.get("unsupported", 0)
+    amb = verdict_counts.get("ambiguous", 0)
+    inc = verdict_counts.get("inconclusive", 0)
+    score, decisive = compute_trust_score(sup, cont, unsup)
+    risk_level = compute_risk_level(cont, unsup, score)
+
+    if "summary" in results and isinstance(results["summary"], dict):
+        results["summary"]["supported_claims"] = sup
+        results["summary"]["contradicted_claims"] = cont
+        results["summary"]["unsupported_claims"] = unsup
+        results["summary"]["ambiguous_claims"] = amb
+        results["summary"]["inconclusive_claims"] = inc
+        results["summary"]["decisive_claims"] = decisive
+        results["summary"]["trust_score"] = score
+        results["summary"]["risk_level"] = risk_level
+
+    audit.results_json = json.dumps(results)
+    db.commit()
+    db.refresh(audit)
+    return audit.to_schema()

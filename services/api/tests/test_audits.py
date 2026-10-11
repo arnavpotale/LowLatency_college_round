@@ -105,6 +105,80 @@ def test_unsupported_file_extension(client):
     assert "Unsupported file extension" in upload_res.json()["detail"]
 
 
+def test_empty_file_upload_rejected_and_cleaned(client):
+    import os
+    import glob
+    from app.core.config import settings
+    create_res = client.post("/api/audits", json={"title": "Empty File Test"})
+    audit_id = create_res.json()["audit_id"]
+
+    empty_tuple = ("empty_regression.txt", io.BytesIO(b""), "text/plain")
+    upload_res = client.post(f"/api/audits/{audit_id}/sources", files={"file": empty_tuple})
+    assert upload_res.status_code == 400
+    assert "empty" in upload_res.json()["detail"].lower()
+    # Confirm temporary file was cleaned up and does not persist on disk
+    leftovers = glob.glob(os.path.join(settings.upload_dir, "*empty_regression.txt"))
+    assert len(leftovers) == 0
+
+
+def test_malformed_pdf_upload_rejected_and_cleaned(client):
+    import os
+    import glob
+    from app.core.config import settings
+    create_res = client.post("/api/audits", json={"title": "Malformed PDF Test"})
+    audit_id = create_res.json()["audit_id"]
+
+    corrupt_tuple = ("bad_regression.pdf", io.BytesIO(b"%PDF-corrupted-random-junk"), "application/pdf")
+    upload_res = client.post(f"/api/audits/{audit_id}/sources", files={"file": corrupt_tuple})
+    assert upload_res.status_code == 400
+    assert "pdf" in upload_res.json()["detail"].lower()
+    # Confirm temporary file was cleaned up
+    leftovers = glob.glob(os.path.join(settings.upload_dir, "*bad_regression.pdf"))
+    assert len(leftovers) == 0
+
+
+def test_oversized_file_upload_rejected(client, monkeypatch):
+    from app.core.config import settings
+    monkeypatch.setattr(settings, "max_upload_size_bytes", 50)
+    create_res = client.post("/api/audits", json={"title": "Oversized File Test"})
+    audit_id = create_res.json()["audit_id"]
+
+    big_payload = b"A" * 100
+    big_tuple = ("big_file.txt", io.BytesIO(big_payload), "text/plain")
+    upload_res = client.post(f"/api/audits/{audit_id}/sources", files={"file": big_tuple})
+    assert upload_res.status_code == 400
+    assert "exceeds maximum allowed size" in upload_res.json()["detail"].lower()
+
+
+def test_path_traversal_filename_sanitized(client):
+    import os
+    import glob
+    import uuid
+    from app.core.config import settings
+    test_id = uuid.uuid4().hex[:8]
+    create_res = client.post("/api/audits", json={"title": "Path Traversal Test"})
+    audit_id = create_res.json()["audit_id"]
+
+    safe_tuple = (f"../../../../traversal_{test_id}.txt", io.BytesIO(b"Valid body text content"), "text/plain")
+    try:
+        upload_res = client.post(f"/api/audits/{audit_id}/sources", files={"file": safe_tuple})
+        assert upload_res.status_code == 201
+        src_data = upload_res.json()
+        assert ".." not in src_data["filename"]
+        # Check that file exists strictly inside upload_dir
+        files = glob.glob(os.path.join(settings.upload_dir, f"*traversal_{test_id}.txt"))
+        assert len(files) == 1
+        for f in files:
+            assert os.path.abspath(f).startswith(os.path.abspath(settings.upload_dir))
+    finally:
+        for f in glob.glob(os.path.join(settings.upload_dir, f"*traversal_{test_id}.txt")):
+            try:
+                os.remove(f)
+            except OSError:
+                pass
+
+
+
 def test_empty_answer_analysis_validation(client):
     create_res = client.post("/api/audits", json={"title": "Empty Audit"})
     audit_id = create_res.json()["audit_id"]
@@ -646,4 +720,44 @@ def test_end_to_end_pdf_upload_multi_passage_audit(client, monkeypatch):
     assert nli_c3["verdict"] == "ambiguous"
 
 
+def test_list_audits_endpoint(client):
+    """Verify GET /api/audits returns all created audits in descending order."""
+    c1 = client.post("/api/audits", json={"title": "Audit Listing Test 1"})
+    assert c1.status_code == 201
+    c2 = client.post("/api/audits", json={"title": "Audit Listing Test 2"})
+    assert c2.status_code == 201
+
+    res = client.get("/api/audits")
+    assert res.status_code == 200
+    audits = res.json()
+    assert isinstance(audits, list)
+    assert len(audits) >= 2
+    titles = [a["title"] for a in audits]
+    assert "Audit Listing Test 2" in titles
+    assert "Audit Listing Test 1" in titles
+
+
+def test_delete_source_endpoint(client):
+    """Verify DELETE /api/audits/{audit_id}/sources/{source_id} removes a source."""
+    c = client.post("/api/audits", json={"title": "Delete Source Test"})
+    audit_id = c.json()["audit_id"]
+
+    src = client.post(
+        f"/api/audits/{audit_id}/sources",
+        data={"text_title": "removable.txt", "text_content": "Temporary content for removal."}
+    )
+    assert src.status_code == 201
+    source_id = src.json()["source_id"]
+
+    # Verify source is present
+    audit_res = client.get(f"/api/audits/{audit_id}")
+    assert len(audit_res.json()["sources"]) == 1
+
+    # Delete source
+    del_res = client.delete(f"/api/audits/{audit_id}/sources/{source_id}")
+    assert del_res.status_code == 204
+
+    # Verify source is removed
+    audit_res2 = client.get(f"/api/audits/{audit_id}")
+    assert len(audit_res2.json()["sources"]) == 0
 

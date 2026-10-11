@@ -52,11 +52,11 @@ export const SourceUploader: React.FC<SourceUploaderProps> = ({
   };
 
   const validateAndUpload = async (file: File) => {
-    const validExtensions = ['pdf', 'txt', 'md'];
+    const validExtensions = ['pdf', 'txt', 'md', 'docx'];
     const ext = file.name.split('.').pop()?.toLowerCase();
 
     if (!ext || !validExtensions.includes(ext)) {
-      setUploadError(`Unsupported file format .${ext}. Only .pdf, .txt, and .md files are accepted.`);
+      setUploadError(`Unsupported file format .${ext}. Only .pdf, .docx, .txt, and .md files are accepted.`);
       return;
     }
 
@@ -86,25 +86,25 @@ export const SourceUploader: React.FC<SourceUploaderProps> = ({
   };
 
   return (
-    <div className="bg-slate-900/60 rounded-xl border border-slate-800 p-5 flex flex-col gap-4">
+    <div className="bg-white dark:bg-[#191F1C] rounded-lg border border-[#DCE3DF] dark:border-[#343E38] p-4 flex flex-col gap-3 shadow-xs">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-sm font-semibold text-white flex items-center gap-2">
-            <FileText className="w-4 h-4 text-indigo-400" />
-            Source Documents & Evidence Base
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-[#17211D] dark:text-[#EDF2EE] flex items-center gap-2">
+            <FileText className="w-3.5 h-3.5 text-[#176B58] dark:text-[#65B89D]" />
+            Ground-Truth Sources &amp; Evidence
           </h2>
-          <p className="text-xs text-slate-400">
-            Ground truth documents used to verify or refute claims (.pdf, .txt, .md, max 10MB)
+          <p className="text-[11px] text-[#58645F] dark:text-[#A7B2AB]">
+            Reference documents for claim grounding (.pdf, .docx, .txt, .md, max 10MB)
           </p>
         </div>
 
         {/* Mode Toggle */}
-        <div className="flex items-center bg-slate-800 p-0.5 rounded-lg border border-slate-700/60 text-xs">
+        <div className="flex items-center bg-[#F6F7F8] dark:bg-[#111614] p-0.5 rounded border border-[#DCE3DF] dark:border-[#343E38] text-xs font-medium">
           <button
             type="button"
             onClick={() => setMode('file')}
-            className={`px-2.5 py-1 rounded-md transition font-medium ${
-              mode === 'file' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-slate-200'
+            className={`px-2.5 py-1 rounded transition text-xs ${
+              mode === 'file' ? 'bg-white dark:bg-[#191F1C] text-[#17211D] dark:text-[#EDF2EE] font-semibold shadow-xs' : 'text-[#58645F] dark:text-[#A7B2AB] hover:text-[#17211D] dark:hover:text-[#EDF2EE]'
             }`}
           >
             File Upload
@@ -112,8 +112,8 @@ export const SourceUploader: React.FC<SourceUploaderProps> = ({
           <button
             type="button"
             onClick={() => setMode('text')}
-            className={`px-2.5 py-1 rounded-md transition font-medium ${
-              mode === 'text' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-slate-200'
+            className={`px-2.5 py-1 rounded transition text-xs ${
+              mode === 'text' ? 'bg-white dark:bg-[#191F1C] text-[#17211D] dark:text-[#EDF2EE] font-semibold shadow-xs' : 'text-[#58645F] dark:text-[#A7B2AB] hover:text-[#17211D] dark:hover:text-[#EDF2EE]'
             }`}
           >
             Paste Text
@@ -122,7 +122,7 @@ export const SourceUploader: React.FC<SourceUploaderProps> = ({
       </div>
 
       {uploadError && (
-        <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-lg text-rose-400 text-xs flex items-center gap-2">
+        <div className="p-2.5 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded text-rose-700 dark:text-rose-300 text-xs flex items-center gap-2">
           <AlertCircle className="w-4 h-4 shrink-0" />
           <span>{uploadError}</span>
         </div>
@@ -136,54 +136,54 @@ export const SourceUploader: React.FC<SourceUploaderProps> = ({
           onDragOver={handleDrag}
           onDrop={handleDrop}
           onClick={() => fileInputRef.current?.click()}
-          className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition flex flex-col items-center justify-center gap-2 ${
+          className={`border border-dashed rounded p-5 text-center cursor-pointer transition flex flex-col items-center justify-center gap-2 ${
             dragActive
-              ? 'border-indigo-500 bg-indigo-500/10'
-              : 'border-slate-700 hover:border-slate-600 bg-slate-950/40'
+              ? 'border-[#176B58] dark:border-[#65B89D] bg-[#EBF5F1] dark:bg-[#19332A]'
+              : 'border-[#DCE3DF] dark:border-[#343E38] hover:border-[#176B58] dark:hover:border-[#65B89D] bg-[#F6F7F8] dark:bg-[#111614]'
           }`}
         >
           <input
             ref={fileInputRef}
             type="file"
             className="hidden"
-            accept=".pdf,.txt,.md"
+            accept=".pdf,.docx,.txt,.md"
             onChange={handleFileChange}
             disabled={isLoading}
           />
-          <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-indigo-400">
-            <Upload className="w-5 h-5" />
+          <div className="w-8 h-8 rounded bg-white dark:bg-[#202824] border border-[#DCE3DF] dark:border-[#343E38] flex items-center justify-center text-[#58645F] dark:text-[#A7B2AB]">
+            <Upload className="w-4 h-4" />
           </div>
           <div>
-            <p className="text-xs font-medium text-slate-200">
-              Drag and drop source documents, or <span className="text-indigo-400 underline">browse</span>
+            <p className="text-xs font-medium text-[#17211D] dark:text-[#EDF2EE]">
+              Drag &amp; drop reference documents, or <span className="text-[#176B58] dark:text-[#65B89D] underline">browse files</span>
             </p>
-            <p className="text-[11px] text-slate-500 mt-0.5">
-              Supports PDF, Plain Text (.txt), and Markdown (.md)
+            <p className="text-[10px] text-[#58645F] dark:text-[#A7B2AB] mt-0.5 font-mono">
+              Accepts PDF, Word (.docx), Plain Text (.txt), and Markdown (.md)
             </p>
           </div>
         </div>
       ) : (
         /* Text Paste Area */
-        <form onSubmit={handleTextSubmit} className="flex flex-col gap-3">
+        <form onSubmit={handleTextSubmit} className="flex flex-col gap-2.5">
           <input
             type="text"
             placeholder="Document label (e.g. Clinical Trial Findings.txt)"
             value={textTitle}
             onChange={(e) => setTextTitle(e.target.value)}
-            className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+            className="w-full bg-[#F6F7F8] dark:bg-[#111614] border border-[#DCE3DF] dark:border-[#343E38] rounded px-3 py-1.5 text-xs text-[#17211D] dark:text-[#EDF2EE] placeholder-[#7E8C86] dark:placeholder-[#738078] focus:outline-none focus:border-[#176B58] dark:focus:border-[#65B89D] font-mono"
           />
           <textarea
             rows={4}
             placeholder="Paste reference text or excerpt here..."
             value={textContent}
             onChange={(e) => setTextContent(e.target.value)}
-            className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500 font-mono"
+            className="w-full bg-[#F6F7F8] dark:bg-[#111614] border border-[#DCE3DF] dark:border-[#343E38] rounded p-3 text-xs text-[#17211D] dark:text-[#EDF2EE] placeholder-[#7E8C86] dark:placeholder-[#738078] focus:outline-none focus:border-[#176B58] dark:focus:border-[#65B89D] font-sans leading-relaxed"
             required
           />
           <button
             type="submit"
             disabled={isLoading || !textContent.trim()}
-            className="self-end px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-medium flex items-center gap-1.5 transition"
+            className="self-end px-3 py-1.5 rounded bg-[#176B58] hover:bg-[#125546] dark:bg-[#65B89D] dark:hover:bg-[#7AC5AC] disabled:opacity-50 text-white dark:text-[#0E1A15] text-xs font-medium flex items-center gap-1.5 transition"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>Add Source Document</span>
@@ -193,28 +193,28 @@ export const SourceUploader: React.FC<SourceUploaderProps> = ({
 
       {/* Uploaded Sources List */}
       {sources.length > 0 && (
-        <div className="mt-2 space-y-2">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+        <div className="mt-1 space-y-1.5">
+          <span className="text-[10px] font-mono uppercase tracking-wider text-[#58645F] dark:text-[#A7B2AB]">
             Attached Sources ({sources.length})
-          </p>
+          </span>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {sources.map((src) => (
               <div
                 key={src.source_id}
-                className="p-2.5 rounded-lg bg-slate-800/60 border border-slate-700/60 flex items-start gap-2.5"
+                className="p-2 rounded bg-[#F6F7F8] dark:bg-[#202824] border border-[#DCE3DF] dark:border-[#343E38] flex items-start gap-2"
               >
-                <div className="p-1.5 rounded bg-indigo-500/10 text-indigo-400 shrink-0">
-                  <FileCode className="w-4 h-4" />
+                <div className="p-1 rounded bg-white dark:bg-[#191F1C] text-[#176B58] dark:text-[#65B89D] shrink-0 border border-[#DCE3DF] dark:border-[#343E38]">
+                  <FileCode className="w-3.5 h-3.5" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-1">
-                    <p className="text-xs font-medium text-slate-200 truncate">{src.filename}</p>
-                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-700 text-slate-300 uppercase">
+                    <p className="text-xs font-medium text-[#17211D] dark:text-[#EDF2EE] truncate">{src.filename}</p>
+                    <span className="text-[9px] font-mono px-1 py-0.5 rounded bg-[#EBF5F1] dark:bg-[#19332A] text-[#176B58] dark:text-[#65B89D] uppercase border border-[#BCD8CD] dark:border-[#2C5E4E]">
                       {src.file_type}
                     </span>
                   </div>
-                  <p className="text-[11px] text-slate-400 mt-0.5">
-                    {src.char_count.toLocaleString()} characters
+                  <p className="text-[10px] text-[#58645F] dark:text-[#A7B2AB] mt-0.5 font-mono">
+                    {src.char_count.toLocaleString()} chars
                   </p>
                 </div>
               </div>

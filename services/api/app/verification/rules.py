@@ -1,6 +1,7 @@
 import re
+import uuid
 from typing import List, Dict, Any, Tuple, Optional, Set
-from app.schemas import VerdictCategory, Evidence
+from app.schemas import VerdictCategory, Evidence, ConflictDetail, ClaimAutopsySchema
 from app.verification.types import (
     PairRelation,
     PairNLIResult,
@@ -50,6 +51,10 @@ UNIT_NORMALIZATION = {
     "months": "month",
     "year": "year",
     "years": "year",
+    "week": "week",
+    "weeks": "week",
+    "decade": "decade",
+    "decades": "decade",
     "c": "c",
     "celsius": "c",
     "participant": "participant",
@@ -146,9 +151,15 @@ def extract_quantities(text: str) -> List[Dict[str, Any]]:
         else:
             clean_unit = raw_unit.replace("°", "").strip()
             unit_tokens = re.findall(r'[a-zA-Z]+', clean_unit)
-            if unit_tokens and unit_tokens[0] not in ["in", "by", "of", "to", "at", "for", "from", "with"]:
-                unit_candidate = unit_tokens[0]
-                unit_str = UNIT_NORMALIZATION.get(unit_candidate, unit_candidate)
+            if unit_tokens:
+                if unit_tokens[0] == "per" and len(unit_tokens) > 1:
+                    rate_period = UNIT_NORMALIZATION.get(unit_tokens[1], unit_tokens[1])
+                    unit_str = f"per_{rate_period}"
+                elif unit_tokens[0] not in ["in", "by", "of", "to", "at", "for", "from", "with", "per"]:
+                    unit_candidate = unit_tokens[0]
+                    unit_str = UNIT_NORMALIZATION.get(unit_candidate, unit_candidate)
+                else:
+                    unit_str = ""
             else:
                 unit_str = ""
 
@@ -178,6 +189,29 @@ def extract_quantities(text: str) -> List[Dict[str, Any]]:
         elif any(w in ctx for w in ["decrease", "decreased", "drop", "dropped", "reduced", "fell", "declined"]):
             qualifier = "decrease"
 
+        # Domain category / metric context (disambiguates distinct metrics like sick leave vs annual leave)
+        def detect_domain_category(c_text: str) -> Optional[str]:
+            c_low = c_text.lower()
+            if any(k in c_low for k in ["sick leave", "sick day", "paid sick"]):
+                return "sick_leave"
+            if any(k in c_low for k in ["annual leave", "vacation", "annual vacation"]):
+                return "annual_leave"
+            if "maternity" in c_low:
+                return "maternity_leave"
+            if "paternity" in c_low:
+                return "paternity_leave"
+            if "parental" in c_low:
+                return "parental_leave"
+            if "bereavement" in c_low:
+                return "bereavement_leave"
+            if "gross margin" in c_low:
+                return "gross_margin"
+            if "operating margin" in c_low:
+                return "operating_margin"
+            if "net margin" in c_low:
+                return "net_margin"
+            return None
+
         quantities.append({
             "value": val,
             "scaled_value": val * scale if scale > 1.0 else val,
@@ -186,9 +220,82 @@ def extract_quantities(text: str) -> List[Dict[str, Any]]:
             "qualifier": qualifier,
             "raw": match.group(0).strip(),
             "start": match.start(),
-            "end": match.end()
+            "end": match.end(),
+            "domain_category": detect_domain_category(ctx),
+            "context": ctx,
         })
     return quantities
+
+
+def evaluate_quantity_units(cq: Dict[str, Any], eq: Dict[str, Any]):
+    """Evaluates unit compatibility and scaling conversions between two quantities."""
+    c_val = cq["value"]
+    c_unit = cq["unit"]
+    e_val = eq["value"]
+    e_unit = eq["unit"]
+    time_converted = False
+    rate_discrepancy = False
+    same_unit = False
+    c_scaled_time = c_val
+    e_scaled_time = e_val
+
+    if c_unit.startswith("per_") and e_unit.startswith("per_"):
+        c_period = c_unit[4:]
+        e_period = e_unit[4:]
+        if c_period == e_period:
+            same_unit = True
+        else:
+            period_multipliers = {
+                "day": 365.0,
+                "week": 52.0,
+                "month": 12.0,
+                "year": 1.0,
+                "decade": 0.1,
+            }
+            if c_period in period_multipliers and e_period in period_multipliers:
+                c_scaled_time = c_val * period_multipliers[c_period]
+                e_scaled_time = e_val * period_multipliers[e_period]
+                same_unit = True
+                time_converted = True
+            else:
+                rate_discrepancy = True
+    elif (c_unit.startswith("per_") and not e_unit.startswith("per_")) or (e_unit.startswith("per_") and not c_unit.startswith("per_")):
+        rate_discrepancy = True
+    elif (c_unit == "day" and e_unit == "hour") or (c_unit == "hour" and e_unit == "day"):
+        same_unit = True
+        time_converted = True
+        if c_unit == "day" and e_unit == "hour":
+            c_scaled_time = c_val * 24.0
+            e_scaled_time = e_val
+        else:
+            c_scaled_time = c_val
+            e_scaled_time = e_val * 24.0
+    elif (c_unit == "year" and e_unit == "month") or (c_unit == "month" and e_unit == "year"):
+        same_unit = True
+        time_converted = True
+        if c_unit == "year" and e_unit == "month":
+            c_scaled_time = c_val * 12.0
+            e_scaled_time = e_val
+        else:
+            c_scaled_time = c_val
+            e_scaled_time = e_val * 12.0
+    elif (c_unit == e_unit and c_unit != ""):
+        same_unit = True
+    elif (cq["prefix"] == eq["prefix"] and cq["prefix"] != "") and (not c_unit and not e_unit):
+        same_unit = True
+
+    return same_unit, time_converted, rate_discrepancy, c_scaled_time, e_scaled_time
+
+
+def check_attribute_compatibility(cq: Dict[str, Any], eq: Dict[str, Any]) -> bool:
+    """Verifies that quantities quantify the same policy attribute / metric."""
+    c_cat = cq.get("domain_category")
+    e_cat = eq.get("domain_category")
+    if c_cat and e_cat and c_cat != e_cat:
+        return False
+    if c_cat and not e_cat:
+        return False
+    return True
 
 
 def compare_quantities(
@@ -197,91 +304,92 @@ def compare_quantities(
 ) -> Tuple[Optional[PairRelation], Optional[str]]:
     """
     Compares numerical quantities between claim and evidence passage.
+    Prioritizes corroborating matches across candidate quantities and prevents
+    cross-attribute false contradictions (e.g., annual leave vs sick leave).
     Returns (PairRelation, rationale) if a decisive numerical match or mismatch is found.
     """
     if not claim_quantities or not evidence_quantities:
         return None, None
 
+    # Pass 1: Check if any candidate evidence quantity ENTAILS a claim assertion
     for cq in claim_quantities:
         c_val = cq["value"]
-        c_unit = cq["unit"]
-        c_qual = cq["qualifier"]
         c_scaled = cq.get("scaled_value", c_val)
-
         for eq in evidence_quantities:
             e_val = eq["value"]
-            e_unit = eq["unit"]
+            e_scaled = eq.get("scaled_value", e_val)
+            same_unit, time_converted, rate_discrepancy, c_scaled_time, e_scaled_time = evaluate_quantity_units(cq, eq)
+            if not same_unit or not check_attribute_compatibility(cq, eq):
+                continue
+
+            raw_c = cq["raw"]
+            raw_e = eq["raw"]
+            if time_converted:
+                if abs(c_scaled_time - e_scaled_time) <= 0.1:
+                    return PairRelation.ENTAILS, f"Time durations match ({raw_c} is equivalent to {raw_e})."
+            else:
+                if abs(c_scaled - e_scaled) <= 0.001:
+                    return PairRelation.ENTAILS, f"Numerical values match ({raw_c})."
+
+    # Pass 2: Check for genuine contradictions among compatible candidate quantities
+    for cq in claim_quantities:
+        c_val = cq["value"]
+        c_qual = cq["qualifier"]
+        c_scaled = cq.get("scaled_value", c_val)
+        for eq in evidence_quantities:
+            e_val = eq["value"]
             e_qual = eq["qualifier"]
             e_scaled = eq.get("scaled_value", e_val)
+            same_unit, time_converted, rate_discrepancy, c_scaled_time, e_scaled_time = evaluate_quantity_units(cq, eq)
+            raw_c = cq["raw"]
+            raw_e = eq["raw"]
 
-            # Check if units match, or both are percentages, or both are currency
-            same_unit = (c_unit == e_unit and c_unit != "") or (cq["prefix"] == eq["prefix"] and cq["prefix"] != "")
-            
-            # Time conversion: days to hours (1 day = 24 hours)
-            time_converted = False
-            if (c_unit == "day" and e_unit == "hour") or (c_unit == "hour" and e_unit == "day"):
-                same_unit = True
-                time_converted = True
-                if c_unit == "day" and e_unit == "hour":
-                    c_scaled_time = c_val * 24.0
-                    e_scaled_time = e_val
-                else:
-                    c_scaled_time = c_val
-                    e_scaled_time = e_val * 24.0
-            elif (c_unit == "year" and e_unit == "month") or (c_unit == "month" and e_unit == "year"):
-                same_unit = True
-                time_converted = True
-                if c_unit == "year" and e_unit == "month":
-                    c_scaled_time = c_val * 12.0
-                    e_scaled_time = e_val
-                else:
-                    c_scaled_time = c_val
-                    e_scaled_time = e_val * 12.0
+            if rate_discrepancy and check_attribute_compatibility(cq, eq):
+                return PairRelation.CONTRADICTS, (
+                    f"Rate frequency discrepancy: Claim specifies rate of {raw_c}, "
+                    f"conflicting with source terms {raw_e}."
+                )
 
-            if same_unit:
-                # 1. Opposite directional trend (e.g. 15% drop vs 8% increase)
-                if (c_qual in ["decrease", "reduced"] and e_qual in ["increase", "growth"]) or \
-                   (c_qual in ["increase", "growth"] and e_qual in ["decrease", "reduced"]):
+            if not same_unit or not check_attribute_compatibility(cq, eq):
+                continue
+
+            # 1. Opposite directional trend (e.g. 15% drop vs 8% increase)
+            if (c_qual in ["decrease", "reduced"] and e_qual in ["increase", "growth"]) or \
+               (c_qual in ["increase", "growth"] and e_qual in ["decrease", "reduced"]):
+                return PairRelation.CONTRADICTS, (
+                    f"Numerical contradiction: Claim asserts a {c_qual} of {raw_c}, "
+                    f"whereas source states an {e_qual} of {raw_e}."
+                )
+
+            # 2. Maximum safe limit exceeded (e.g. claim says 100mg, evidence specifies max 50mg)
+            if e_qual == "maximum" and c_val > e_val:
+                return PairRelation.CONTRADICTS, (
+                    f"Numerical contradiction: Claim specifies {raw_c}, "
+                    f"exceeding the source maximum threshold of {raw_e}."
+                )
+
+            # 3. Minimum requirement violated
+            if e_qual == "minimum" and c_val < e_val:
+                return PairRelation.CONTRADICTS, (
+                    f"Numerical contradiction: Claim specifies {raw_c}, "
+                    f"below the source minimum threshold of {raw_e}."
+                )
+
+            # 4. Check time mismatch if converted
+            if time_converted:
+                if abs(c_scaled_time - e_scaled_time) > 0.1:
                     return PairRelation.CONTRADICTS, (
-                        f"Numerical contradiction: Claim asserts a {c_qual} of {cq['raw']}, "
-                        f"whereas source states an {e_qual} of {eq['raw']}."
+                        f"Numerical discrepancy: Claim states {raw_c} ({c_scaled_time:.0f}h), "
+                        f"conflicting with {raw_e} ({e_scaled_time:.0f}h) in source."
                     )
 
-                # 2. Maximum safe limit exceeded (e.g. claim says 100mg, evidence specifies max 50mg)
-                if e_qual == "maximum" and c_val > e_val:
-                    return PairRelation.CONTRADICTS, (
-                        f"Numerical contradiction: Claim specifies {cq['raw']}, "
-                        f"exceeding the source maximum threshold of {eq['raw']}."
-                    )
-
-                # 3. Minimum requirement violated
-                if e_qual == "minimum" and c_val < e_val:
-                    return PairRelation.CONTRADICTS, (
-                        f"Numerical contradiction: Claim specifies {cq['raw']}, "
-                        f"below the source minimum threshold of {eq['raw']}."
-                    )
-
-                # 4. Check time mismatch if converted
-                if time_converted:
-                    if abs(c_scaled_time - e_scaled_time) > 0.1:
-                        return PairRelation.CONTRADICTS, (
-                            f"Numerical discrepancy: Claim states {cq['raw']} ({c_scaled_time:.0f}h), "
-                            f"conflicting with {eq['raw']} ({e_scaled_time:.0f}h) in source."
-                        )
-                    else:
-                        return PairRelation.ENTAILS, f"Time durations match ({cq['raw']} is equivalent to {eq['raw']})."
-
-                # 5. Direct value conflict (e.g. 100mg vs 25mg, or 10000 vs 100)
-                diff = abs(c_scaled - e_scaled)
-                if diff > 0.001:
-                    return PairRelation.CONTRADICTS, (
-                        f"Numerical discrepancy: Claim states {cq['raw']}, "
-                        f"conflicting with {eq['raw']} in source."
-                    )
-
-                # 6. Exact matching value
-                if diff <= 0.001:
-                    return PairRelation.ENTAILS, f"Numerical values match ({cq['raw']})."
+            # 5. Direct value conflict
+            diff = abs(c_scaled - e_scaled)
+            if diff > 0.001:
+                return PairRelation.CONTRADICTS, (
+                    f"Numerical discrepancy: Claim states {raw_c}, "
+                    f"conflicting with {raw_e} in source."
+                )
 
     return None, None
 
@@ -421,7 +529,10 @@ def compute_pair_relation(claim_text: str, evidence: Evidence) -> PairNLIResult:
             score=0.95,
             rationale=num_rationale or "Numerical contradiction detected against evidence.",
             contradiction_detail=num_rationale,
-            numerical_finding=num_rationale
+            numerical_finding=num_rationale,
+            source_name=evidence.source_name,
+            page_or_section=evidence.page_or_section,
+            excerpt=evidence.text
         )
 
     # Step 3: Check polarity and negation contradictions
@@ -432,7 +543,10 @@ def compute_pair_relation(claim_text: str, evidence: Evidence) -> PairNLIResult:
             relation=PairRelation.CONTRADICTS,
             score=0.96,
             rationale=polarity_conflict,
-            contradiction_detail=polarity_conflict
+            contradiction_detail=polarity_conflict,
+            source_name=evidence.source_name,
+            page_or_section=evidence.page_or_section,
+            excerpt=evidence.text
         )
 
     # Step 4: Check content-word overlap with stem matching
@@ -455,7 +569,10 @@ def compute_pair_relation(claim_text: str, evidence: Evidence) -> PairNLIResult:
             relation=PairRelation.ENTAILS,
             score=min(0.98, 0.75 + overlap_ratio * 0.25),
             rationale=f"Directly supported by source text at {evidence.page_or_section} ({num_rationale}).",
-            numerical_finding=num_rationale
+            numerical_finding=num_rationale,
+            source_name=evidence.source_name,
+            page_or_section=evidence.page_or_section,
+            excerpt=evidence.text
         )
 
     # Step 6: Non-numerical assertions require contiguous phrase corroboration, NOT bag-of-words overlap
@@ -465,7 +582,10 @@ def compute_pair_relation(claim_text: str, evidence: Evidence) -> PairNLIResult:
             evidence_id=evidence.evidence_id,
             relation=PairRelation.ENTAILS,
             score=round(min(0.96, 0.75 + overlap_ratio * 0.20), 2),
-            rationale=f"Source explicitly corroborates assertion at {evidence.page_or_section}: \"...{matched_phrase}...\""
+            rationale=f"Source explicitly corroborates assertion at {evidence.page_or_section}: \"...{matched_phrase}...\"",
+            source_name=evidence.source_name,
+            page_or_section=evidence.page_or_section,
+            excerpt=evidence.text
         )
 
     # Step 7: Topic overlap without phrase or numerical corroboration -> INSUFFICIENT
@@ -477,7 +597,10 @@ def compute_pair_relation(claim_text: str, evidence: Evidence) -> PairNLIResult:
             evidence_id=evidence.evidence_id,
             relation=PairRelation.INSUFFICIENT,
             score=round(overlap_ratio, 2),
-            rationale=f"Passage at {evidence.page_or_section} discusses related topic terms{terms_str} but provides insufficient evidence to confirm or deny the assertion."
+            rationale=f"Passage at {evidence.page_or_section} discusses related topic terms{terms_str} but provides insufficient evidence to confirm or deny the assertion.",
+            source_name=evidence.source_name,
+            page_or_section=evidence.page_or_section,
+            excerpt=evidence.text
         )
 
     # Step 8: Negligible or zero overlap -> NEUTRAL
@@ -485,7 +608,10 @@ def compute_pair_relation(claim_text: str, evidence: Evidence) -> PairNLIResult:
         evidence_id=evidence.evidence_id,
         relation=PairRelation.NEUTRAL,
         score=0.10,
-        rationale=f"Passage at {evidence.page_or_section} does not contain information directly relevant to this claim."
+        rationale=f"Passage at {evidence.page_or_section} does not contain information directly relevant to this claim.",
+        source_name=evidence.source_name,
+        page_or_section=evidence.page_or_section,
+        excerpt=evidence.text
     )
 
 
@@ -499,6 +625,134 @@ def validate_citations(evidence_ids: List[str], valid_evidence_ids: Set[str]) ->
         if eid in valid_evidence_ids and eid not in filtered:
             filtered.append(eid)
     return filtered
+
+
+def generate_claim_autopsy(
+    claim_text: str,
+    verdict: VerdictCategory,
+    pair_results: List[PairNLIResult],
+    candidate_evidence: List[Evidence]
+) -> ClaimAutopsySchema:
+    """
+    Performs forensic autopsy on a claim verdict:
+    Identifies the exact phrase responsible, discrepancy type, contrasting elements, and technical diagnosis.
+    """
+    evidence_lookup = {e.evidence_id: e for e in candidate_evidence}
+    contradicting = [p for p in pair_results if p.relation == PairRelation.CONTRADICTS]
+    entailing = [p for p in pair_results if p.relation == PairRelation.ENTAILS]
+
+    if verdict == VerdictCategory.CONTRADICTED:
+        best_cont = max(contradicting, key=lambda x: x.score) if contradicting else None
+        rationale = best_cont.rationale if best_cont else "Claim contradicts source facts."
+
+        # Check numerical / rate discrepancies
+        claim_quantities = extract_quantities(claim_text)
+        ev_item = evidence_lookup.get(best_cont.evidence_id) if best_cont else None
+        ev_quantities = extract_quantities(ev_item.text) if ev_item else []
+
+        def format_qty(q):
+            val = q.get('value', 0)
+            val_str = str(int(val)) if isinstance(val, (int, float)) and float(val).is_integer() else str(val)
+            prefix = q.get('prefix', '')
+            unit = q.get('unit', '')
+            unit = unit.replace('per_', ' per ')
+            return f"{prefix}{val_str}{unit}".strip()
+
+        c_qty_strs = [format_qty(q) for q in claim_quantities]
+        e_qty_strs = [format_qty(q) for q in ev_quantities]
+
+        # Rate frequency mismatch?
+        has_rate = any("per_" in str(q.get("unit", "")) for q in claim_quantities) or "per" in claim_text.lower()
+        if has_rate:
+            rate_phrase = re.search(r'\b(per\s+(?:decade|year|month|week|day|hour))\b', claim_text, re.IGNORECASE)
+            problematic = rate_phrase.group(0) if rate_phrase else (c_qty_strs[0] if c_qty_strs else None)
+            return ClaimAutopsySchema(
+                problematic_phrase=problematic,
+                issue_type="rate_frequency",
+                claim_elements=c_qty_strs,
+                evidence_elements=e_qty_strs,
+                diagnosis=f"Rate interval discrepancy: assertion specifies '{problematic}' conflicting with source rate frequency."
+            )
+
+        if c_qty_strs and e_qty_strs:
+            # Pick the evidence quantity that is attribute-compatible with the claim quantity
+            best_e_qty_str = e_qty_strs[0]
+            for cq in claim_quantities:
+                for eq in ev_quantities:
+                    if check_attribute_compatibility(cq, eq) and cq.get("unit") == eq.get("unit"):
+                        best_e_qty_str = format_qty(eq)
+                        break
+            diverging = c_qty_strs[0]
+            return ClaimAutopsySchema(
+                problematic_phrase=diverging,
+                issue_type="quantity_mismatch",
+                claim_elements=c_qty_strs,
+                evidence_elements=[best_e_qty_str],
+                diagnosis=f"Numerical conflict: claim asserts '{diverging}' but authoritative source documents '{best_e_qty_str}'."
+            )
+
+        # Polarity conflict?
+        for claim_pat, ev_pat, explanation in POLARITY_CONFLICT_PAIRS:
+            m_c = claim_pat.search(claim_text)
+            if m_c:
+                return ClaimAutopsySchema(
+                    problematic_phrase=m_c.group(0),
+                    issue_type="polarity_negation",
+                    claim_elements=[m_c.group(0)],
+                    evidence_elements=[],
+                    diagnosis=explanation
+                )
+
+        # Directional or general conflict
+        dir_m = re.search(r'\b(increased|decreased|dropped|rose|grew|fell|declined)\b', claim_text, re.IGNORECASE)
+        problematic = dir_m.group(0) if dir_m else None
+        return ClaimAutopsySchema(
+            problematic_phrase=problematic,
+            issue_type="direct_contradiction",
+            claim_elements=[problematic] if problematic else [],
+            evidence_elements=[],
+            diagnosis=rationale
+        )
+
+    elif verdict == VerdictCategory.AMBIGUOUS:
+        sup_source = evidence_lookup.get(entailing[0].evidence_id) if entailing else None
+        cont_source = evidence_lookup.get(contradicting[0].evidence_id) if contradicting else None
+        return ClaimAutopsySchema(
+            problematic_phrase=claim_text,
+            issue_type="conflicting_sources",
+            claim_elements=[sup_source.source_name if sup_source else "Source A"],
+            evidence_elements=[cont_source.source_name if cont_source else "Source B"],
+            diagnosis="Evidence conflict: multiple authoritative sources present incompatible accounts of this assertion."
+        )
+
+    elif verdict == VerdictCategory.SUPPORTED:
+        claim_quantities = extract_quantities(claim_text)
+        c_qty_strs = [f"{q.get('prefix','')}{str(int(q.get('value',0))) if isinstance(q.get('value'), (int, float)) and float(q.get('value')).is_integer() else q.get('value')}{q.get('unit','')}".strip() for q in claim_quantities]
+        return ClaimAutopsySchema(
+            problematic_phrase=None,
+            issue_type="verified_match",
+            claim_elements=c_qty_strs,
+            evidence_elements=c_qty_strs,
+            diagnosis="Factually corroborated: key assertion entities, units, and conditions align with source evidence."
+        )
+
+    elif verdict == VerdictCategory.INCONCLUSIVE:
+        return ClaimAutopsySchema(
+            problematic_phrase=None,
+            issue_type="insufficient_context",
+            claim_elements=[],
+            evidence_elements=[],
+            diagnosis="Insufficient context: source discusses related domain terminology but lacks explicit corroboration for this assertion."
+        )
+
+    else:  # UNSUPPORTED
+        return ClaimAutopsySchema(
+            problematic_phrase=claim_text,
+            issue_type="missing_evidence",
+            claim_elements=[claim_text[:50]],
+            evidence_elements=[],
+            diagnosis="Ungrounded assertion: claim introduces facts, entities, or outcomes absent from all supplied source documents."
+        )
 
 
 def aggregate_verdicts(
@@ -526,13 +780,17 @@ def aggregate_verdicts(
 
     # Case A: No candidate evidence supplied at all
     if not candidate_evidence or not pair_results:
+        verdict = VerdictCategory.UNSUPPORTED
+        autopsy = generate_claim_autopsy(claim_text, verdict, pair_results, candidate_evidence)
         return ClaimVerificationResult(
             claim_text=claim_text,
-            verdict=VerdictCategory.UNSUPPORTED,
+            verdict=verdict,
             explanation="No relevant evidence passages were found in the provided sources to substantiate or evaluate this claim.",
             confidence=0.30,
             evidence_ids=[],
-            pair_results=pair_results
+            pair_results=pair_results,
+            autopsy=autopsy,
+            conflict=None
         )
 
     # Case B: Conflicting evidence (Both entailing and contradicting passages exist)
@@ -546,16 +804,39 @@ def aggregate_verdicts(
         sup_loc = sup_source.page_or_section if sup_source else "Source"
         cont_loc = cont_source.page_or_section if cont_source else "Source"
 
+        conflict = ConflictDetail(
+            conflict_id=f"conf_{uuid.uuid4().hex[:6]}",
+            conflict_type="direct_contradiction",
+            description=(
+                f"Source divergence: passage at {sup_loc} ({sup_source.source_name if sup_source else 'Source A'}) "
+                f"corroborates the claim, whereas passage at {cont_loc} ({cont_source.source_name if cont_source else 'Source B'}) "
+                f"directly contradicts it ({contradicting_pairs[0].rationale})."
+            ),
+            claim_id=None,
+            supporting_evidence_id=entailing_pairs[0].evidence_id,
+            supporting_source_name=sup_source.source_name if sup_source else None,
+            supporting_location=sup_loc,
+            supporting_text=sup_source.text if sup_source else None,
+            contradicting_evidence_id=contradicting_pairs[0].evidence_id,
+            contradicting_source_name=cont_source.source_name if cont_source else None,
+            contradicting_location=cont_loc,
+            contradicting_text=cont_source.text if cont_source else None
+        )
+        verdict = VerdictCategory.AMBIGUOUS
+        autopsy = generate_claim_autopsy(claim_text, verdict, pair_results, candidate_evidence)
+
         return ClaimVerificationResult(
             claim_text=claim_text,
-            verdict=VerdictCategory.AMBIGUOUS,
+            verdict=verdict,
             explanation=(
                 f"Conflicting evidence across sources: passage at {sup_loc} appears to corroborate the assertion, "
                 f"while passage at {cont_loc} contradicts it ({contradicting_pairs[0].rationale})."
             ),
             confidence=0.55,
             evidence_ids=used_ids,
-            pair_results=pair_results
+            pair_results=pair_results,
+            autopsy=autopsy,
+            conflict=conflict
         )
 
     # Case C: Contradiction found
@@ -565,13 +846,18 @@ def aggregate_verdicts(
         ev_item = evidence_lookup.get(best_cont.evidence_id)
         loc = f" at {ev_item.page_or_section}" if ev_item else ""
 
+        verdict = VerdictCategory.CONTRADICTED
+        autopsy = generate_claim_autopsy(claim_text, verdict, pair_results, candidate_evidence)
+
         return ClaimVerificationResult(
             claim_text=claim_text,
-            verdict=VerdictCategory.CONTRADICTED,
+            verdict=verdict,
             explanation=f"Direct conflict with source evidence{loc}: {best_cont.rationale}",
             confidence=best_cont.score,
             evidence_ids=used_ids,
-            pair_results=pair_results
+            pair_results=pair_results,
+            autopsy=autopsy,
+            conflict=None
         )
 
     # Case D: Supported by evidence
@@ -581,34 +867,48 @@ def aggregate_verdicts(
         ev_item = evidence_lookup.get(best_ent.evidence_id)
         loc = f" at {ev_item.page_or_section}" if ev_item else ""
 
+        verdict = VerdictCategory.SUPPORTED
+        autopsy = generate_claim_autopsy(claim_text, verdict, pair_results, candidate_evidence)
+
         return ClaimVerificationResult(
             claim_text=claim_text,
-            verdict=VerdictCategory.SUPPORTED,
+            verdict=verdict,
             explanation=f"Corroborated by source evidence{loc}: {best_ent.rationale}",
             confidence=best_ent.score,
             evidence_ids=used_ids,
-            pair_results=pair_results
+            pair_results=pair_results,
+            autopsy=autopsy,
+            conflict=None
         )
 
     # Case E: Insufficient context found
     if insufficient_pairs:
         used_ids = validate_citations([p.evidence_id for p in insufficient_pairs], valid_ids)
         best_ins = insufficient_pairs[0]
+        verdict = VerdictCategory.INCONCLUSIVE
+        autopsy = generate_claim_autopsy(claim_text, verdict, pair_results, candidate_evidence)
+
         return ClaimVerificationResult(
             claim_text=claim_text,
-            verdict=VerdictCategory.INCONCLUSIVE,
+            verdict=verdict,
             explanation=best_ins.rationale,
             confidence=0.45,
             evidence_ids=used_ids,
-            pair_results=pair_results
+            pair_results=pair_results,
+            autopsy=autopsy,
+            conflict=None
         )
 
     # Case F: All passages were completely neutral (no support, no contradiction)
+    verdict = VerdictCategory.UNSUPPORTED
+    autopsy = generate_claim_autopsy(claim_text, verdict, pair_results, candidate_evidence)
     return ClaimVerificationResult(
         claim_text=claim_text,
-        verdict=VerdictCategory.UNSUPPORTED,
+        verdict=verdict,
         explanation="Candidate source passages do not contain facts confirming or addressing this claim.",
         confidence=0.25,
         evidence_ids=[],
-        pair_results=pair_results
+        pair_results=pair_results,
+        autopsy=autopsy,
+        conflict=None
     )

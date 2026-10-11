@@ -3,6 +3,10 @@ import pytest
 
 from app.reporting.generator import (
     generate_audit_markdown_report,
+    generate_executive_markdown_report,
+    generate_txt_report,
+    generate_docx_report,
+    generate_pdf_report,
     format_inline_code,
     get_evidence_relationship,
     format_location_string,
@@ -871,3 +875,47 @@ def test_inline_code_spans_with_embedded_backticks(base_timestamps):
 
     # 3. Affected claim ID with backtick
     assert "*Affected Claims:* `` cl`1`tick ``" in report
+
+
+def test_executive_markdown_report_generation(complete_audit):
+    report = generate_executive_markdown_report(complete_audit)
+    assert "# Second Opinion — Executive Audit Summary" in report
+    assert "Clinical Trial Drug Evaluation" in report
+    assert "Overall Reliability Trust Score:" in report
+    assert "Governance Risk Rating:" in report
+    assert "Total Assertions Audited:" in report
+
+
+def test_txt_report_generation(complete_audit):
+    txt_detailed = generate_txt_report(complete_audit, report_type="detailed")
+    assert "Second Opinion — Audit Report" in txt_detailed
+    assert "Clinical Trial Drug Evaluation" in txt_detailed
+    assert "**" not in txt_detailed  # Formatting stripped for plain text
+
+    txt_exec = generate_txt_report(complete_audit, report_type="executive")
+    assert "Executive Audit Summary" in txt_exec
+
+
+def test_docx_report_generation(complete_audit):
+    docx_detailed = generate_docx_report(complete_audit, report_type="detailed")
+    assert isinstance(docx_detailed, bytes)
+    assert len(docx_detailed) > 1000
+    # DOCX magic bytes: PK (zip archive)
+    assert docx_detailed.startswith(b"PK")
+
+    docx_exec = generate_docx_report(complete_audit, report_type="executive")
+    assert isinstance(docx_exec, bytes)
+    assert docx_exec.startswith(b"PK")
+
+
+def test_pdf_report_generation(complete_audit):
+    pdf_detailed = generate_pdf_report(complete_audit, report_type="detailed")
+    assert isinstance(pdf_detailed, bytes)
+    assert len(pdf_detailed) > 500
+    # PDF magic bytes: %PDF
+    assert pdf_detailed.startswith(b"%PDF")
+
+    pdf_exec = generate_pdf_report(complete_audit, report_type="executive")
+    assert isinstance(pdf_exec, bytes)
+    assert pdf_exec.startswith(b"%PDF")
+

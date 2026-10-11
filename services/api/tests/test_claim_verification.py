@@ -377,3 +377,109 @@ def test_fabricated_citation_scrubbed(sample_evidence_fixtures):
     assert scrubbed == ["ev_dosage_01"]
     assert "ev_invented_ghost_id" not in scrubbed
 
+
+def test_sick_leave_numerical_regression_supported_against_exact_evidence():
+    verifier = ClaimVerifier(provider=DeterministicRuleEvaluator())
+    claim_text = "Employees receive 12 days of paid sick leave annually."
+    ev = Evidence(
+        evidence_id="ev_sick_01",
+        source_id="src_policy_01",
+        source_name="handbook.pdf",
+        text="Employees receive 12 days of paid sick leave per calendar year.",
+        page_or_section="Section 4.1",
+        relevance_score=0.95
+    )
+
+    result = verifier.verify_claim(claim=claim_text, candidate_evidence=[ev])
+    assert result.verdict == VerdictCategory.SUPPORTED
+    assert "ev_sick_01" in result.evidence_ids
+    assert result.confidence >= 0.70
+
+
+def test_sick_leave_not_contradicted_by_annual_leave_figure():
+    """
+    REGRESSION TEST: Multi-attribute reference containing both 18 days of annual leave
+    and 12 days of sick leave must NOT trigger cross-attribute false contradiction.
+    """
+    verifier = ClaimVerifier(provider=DeterministicRuleEvaluator())
+    claim_text = "Employees receive 12 days of paid sick leave annually."
+    ev = Evidence(
+        evidence_id="ev_multi_01",
+        source_id="src_policy_01",
+        source_name="handbook.pdf",
+        text="Full-time staff receive 18 days of paid annual leave. In addition, employees receive 12 days of paid sick leave per calendar year.",
+        page_or_section="Section 4.1",
+        relevance_score=0.95
+    )
+
+    result = verifier.verify_claim(claim=claim_text, candidate_evidence=[ev])
+    assert result.verdict == VerdictCategory.SUPPORTED
+    assert result.verdict != VerdictCategory.CONTRADICTED
+    assert "18" not in result.explanation.lower() or "annual" not in result.explanation.lower()
+
+
+def test_sick_leave_unsupported_when_only_annual_leave_present():
+    """
+    REGRESSION TEST: A reference containing ONLY 18 days of annual leave must NOT
+    be marked as a proven contradiction for a 12-day sick leave assertion.
+    Absence of relevant evidence must be classified as unsupported / inconclusive.
+    """
+    verifier = ClaimVerifier(provider=DeterministicRuleEvaluator())
+    claim_text = "Employees receive 12 days of paid sick leave annually."
+    ev = Evidence(
+        evidence_id="ev_annual_only_01",
+        source_id="src_policy_01",
+        source_name="handbook.pdf",
+        text="Full-time staff receive 18 days of paid annual leave each calendar year.",
+        page_or_section="Section 4.1",
+        relevance_score=0.80
+    )
+
+    result = verifier.verify_claim(claim=claim_text, candidate_evidence=[ev])
+    assert result.verdict in [VerdictCategory.UNSUPPORTED, VerdictCategory.INCONCLUSIVE]
+    assert result.verdict != VerdictCategory.CONTRADICTED
+
+
+def test_sick_leave_genuine_numerical_contradiction_preserved():
+    """
+    Confirms genuine contradiction detection is preserved when the exact same attribute
+    has diverging numbers (12 days vs 10 days of sick leave).
+    """
+    verifier = ClaimVerifier(provider=DeterministicRuleEvaluator())
+    claim_text = "Employees receive 12 days of paid sick leave annually."
+    ev = Evidence(
+        evidence_id="ev_sick_wrong_01",
+        source_id="src_policy_01",
+        source_name="handbook.pdf",
+        text="Employees receive 10 days of paid sick leave per calendar year.",
+        page_or_section="Section 4.1",
+        relevance_score=0.95
+    )
+
+    result = verifier.verify_claim(claim=claim_text, candidate_evidence=[ev])
+    assert result.verdict == VerdictCategory.CONTRADICTED
+    assert "ev_sick_wrong_01" in result.evidence_ids
+    assert "10" in result.explanation
+
+
+def test_annual_leave_genuine_numerical_contradiction_preserved():
+    """
+    Confirms genuine contradiction detection is preserved for annual leave (18 days vs 20 days).
+    """
+    verifier = ClaimVerifier(provider=DeterministicRuleEvaluator())
+    claim_text = "Employees receive 18 days of paid annual leave."
+    ev = Evidence(
+        evidence_id="ev_annual_wrong_01",
+        source_id="src_policy_01",
+        source_name="handbook.pdf",
+        text="Employees receive 20 days of paid annual leave per calendar year.",
+        page_or_section="Section 4.1",
+        relevance_score=0.95
+    )
+
+    result = verifier.verify_claim(claim=claim_text, candidate_evidence=[ev])
+    assert result.verdict == VerdictCategory.CONTRADICTED
+    assert "ev_annual_wrong_01" in result.evidence_ids
+    assert "20" in result.explanation
+
+

@@ -47,6 +47,55 @@ class Evidence(BaseModel):
     end_char: Optional[int] = Field(None, ge=0, description="Alias for end_offset")
 
 
+class PairResultSchema(BaseModel):
+    evidence_id: str = Field(..., description="Referenced evidence ID")
+    relation: str = Field(..., description="Evaluated relation (entails, contradicts, neutral, insufficient)")
+    score: float = Field(..., ge=0.0, le=1.0, description="Verification or relevance score")
+    rationale: str = Field(..., description="Evidence-grounded rationale")
+    contradiction_detail: Optional[str] = Field(None, description="Specific contradiction finding")
+    numerical_finding: Optional[str] = Field(None, description="Quantity or rate discrepancy finding")
+    source_name: Optional[str] = Field(None, description="Originating document title")
+    page_or_section: Optional[str] = Field(None, description="Section or page citation")
+    excerpt: Optional[str] = Field(None, description="Exact cited passage")
+
+
+class ConflictDetail(BaseModel):
+    conflict_id: str = Field(..., description="Unique conflict identifier")
+    conflict_type: str = Field(..., description="Type of conflict: direct_contradiction, divergent_metrics, scope_mismatch")
+    description: str = Field(..., description="Explanation of the discrepancy between sources")
+    claim_id: Optional[str] = Field(None, description="Associated claim ID")
+    supporting_evidence_id: Optional[str] = Field(None, description="Evidence ID affirming the claim")
+    supporting_source_name: Optional[str] = Field(None, description="Source affirming the claim")
+    supporting_location: Optional[str] = Field(None, description="Location affirming the claim")
+    supporting_text: Optional[str] = Field(None, description="Passage affirming the claim")
+    contradicting_evidence_id: Optional[str] = Field(None, description="Evidence ID contradicting the claim")
+    contradicting_source_name: Optional[str] = Field(None, description="Source contradicting the claim")
+    contradicting_location: Optional[str] = Field(None, description="Location contradicting the claim")
+    contradicting_text: Optional[str] = Field(None, description="Passage contradicting the claim")
+
+
+class ClaimAutopsySchema(BaseModel):
+    problematic_phrase: Optional[str] = Field(None, description="Exact phrase in answer responsible for failure or conflict")
+    issue_type: str = Field(..., description="Discrepancy category: quantity_mismatch, rate_frequency, polarity_negation, missing_evidence, verified_match, conflicting_sources, insufficient_context")
+    claim_elements: List[str] = Field(default_factory=list, description="Extracted key tokens/numbers from claim")
+    evidence_elements: List[str] = Field(default_factory=list, description="Extracted contrasting tokens/numbers from evidence")
+    diagnosis: str = Field(..., description="Detailed forensic diagnosis explaining the verdict")
+
+
+class HumanReviewSchema(BaseModel):
+    action: str = Field(..., description="Auditor review decision: accepted, overridden_supported, overridden_contradicted, overridden_unsupported, deferred")
+    notes: str = Field("", description="Auditor rationale for the review decision")
+    reviewer: str = Field("Human Auditor", description="Identifier of the human reviewer")
+    reviewed_at: datetime = Field(default_factory=datetime.utcnow, description="Timestamp of human review")
+    original_verdict: str = Field(..., description="Original algorithmic verdict before review")
+
+
+class HumanReviewInput(BaseModel):
+    action: str = Field(..., description="Decision: accepted, overridden_supported, overridden_contradicted, overridden_unsupported, deferred")
+    notes: Optional[str] = Field("", description="Reviewer justification or notes")
+    reviewer: Optional[str] = Field("Human Auditor", description="Name or ID of reviewer")
+
+
 class Claim(BaseModel):
     claim_id: str = Field(..., description="Unique identifier for the extracted claim")
     claim_text: str = Field(..., description="Atomic factual assertion extracted from the answer")
@@ -56,6 +105,10 @@ class Claim(BaseModel):
     explanation: str = Field(..., description="Clear reasoning justifying the verdict based on evidence")
     confidence: float = Field(..., ge=0.0, le=1.0, description="Calibrated confidence score between 0.0 and 1.0")
     evidence_ids: List[str] = Field(default_factory=list, description="IDs of supporting or contradicting evidence")
+    evaluation_trail: List[PairResultSchema] = Field(default_factory=list, description="Step-by-step passage evaluation trace")
+    conflict: Optional[ConflictDetail] = Field(None, description="Cross-source conflict details if present")
+    autopsy: Optional[ClaimAutopsySchema] = Field(None, description="Detailed forensic autopsy breakdown")
+    human_review: Optional[HumanReviewSchema] = Field(None, description="Human auditor judgment and override details")
 
 
 class ConsistencyFinding(BaseModel):
@@ -81,7 +134,8 @@ class AuditSummary(BaseModel):
     unsupported_claims: int = 0
     ambiguous_claims: int = 0
     inconclusive_claims: int = 0
-    trust_score: float = Field(0.0, ge=0.0, le=100.0, description="Composite trust score (0-100)")
+    decisive_claims: int = 0
+    trust_score: Optional[float] = Field(None, ge=0.0, le=100.0, description="Normalized trust score (0-100) or None if no decisive claims")
     risk_level: str = Field("low", description="Overall risk rating: low, medium, or high")
     key_takeaway: str = Field("", description="High-level summary of verification findings")
 
@@ -107,6 +161,7 @@ class AuditResponse(BaseModel):
     consistency_findings: List[ConsistencyFinding] = Field(default_factory=list, description="Logical/numerical consistency issues")
     safety_findings: List[SafetyFinding] = Field(default_factory=list, description="Potential safety and liability warnings")
     summary: Optional[AuditSummary] = Field(None, description="Executive summary and trust score")
+    conflict_map: List[ConflictDetail] = Field(default_factory=list, description="Cross-source or internal evidence conflicts")
     report_reference: Optional[str] = Field(None, description="Identifier or path for the compiled audit report")
     is_mock: bool = Field(True, description="True if results are mock/simulated; False when real AI pipeline runs")
     created_at: datetime = Field(default_factory=datetime.utcnow)
