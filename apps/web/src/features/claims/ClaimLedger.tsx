@@ -43,30 +43,30 @@ export const ClaimLedger: React.FC<ClaimLedgerProps> = ({
   ];
 
   return (
-    <div className="flex flex-col h-full bg-[#12141a] border border-zinc-800/80 rounded-lg overflow-hidden">
+    <div className="flex flex-col h-full bg-white dark:bg-[#191F1C] border border-[#DCE3DF] dark:border-[#343E38] rounded-lg overflow-hidden shadow-xs">
       {/* Header & Filter Controls */}
-      <div className="p-3 border-b border-zinc-800/80 space-y-2.5 bg-[#14161f]">
+      <div className="p-3 border-b border-[#DCE3DF] dark:border-[#343E38] space-y-2.5 bg-[#EDF1EF] dark:bg-[#202824]">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold uppercase tracking-wider text-zinc-200">
+            <span className="text-xs font-semibold uppercase tracking-wider text-[#17211D] dark:text-[#EDF2EE]">
               Claim Ledger
             </span>
-            <span className="font-mono text-[10px] px-1.5 py-0.2 rounded bg-zinc-900 text-zinc-400 border border-zinc-800">
+            <span className="font-mono text-[10px] px-1.5 py-0.2 rounded bg-white dark:bg-[#191F1C] text-[#58645F] dark:text-[#A7B2AB] border border-[#DCE3DF] dark:border-[#343E38]">
               {claims.length} assertions
             </span>
           </div>
-          <span className="text-[10px] text-zinc-400 font-mono">Select to inspect</span>
+          <span className="text-[10px] text-[#58645F] dark:text-[#A7B2AB] font-mono">Select to inspect</span>
         </div>
 
         {/* Search Input */}
         <div className="relative">
-          <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
+          <Search className="w-3.5 h-3.5 text-[#7E8C86] dark:text-[#738078] absolute left-2.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Filter claims by keyword..."
-            className="w-full pl-8 pr-3 py-1.5 rounded bg-[#0f1117] border border-zinc-800 text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-zinc-600 font-sans"
+            className="w-full pl-8 pr-3 py-1.5 rounded bg-white dark:bg-[#191F1C] border border-[#DCE3DF] dark:border-[#343E38] text-xs text-[#17211D] dark:text-[#EDF2EE] placeholder-[#7E8C86] dark:placeholder-[#738078] focus:outline-none focus:border-[#176B58] dark:focus:border-[#65B89D] font-sans"
           />
         </div>
 
@@ -80,13 +80,13 @@ export const ClaimLedger: React.FC<ClaimLedgerProps> = ({
                 onClick={() => setFilterVerdict(btn.id)}
                 className={`px-2 py-0.5 rounded text-[11px] font-medium transition flex items-center gap-1 border ${
                   isSelected
-                    ? 'bg-zinc-200 text-zinc-900 border-zinc-200 font-semibold shadow-sm'
-                    : 'bg-[#0f1117] text-zinc-400 border-zinc-800 hover:text-zinc-200 hover:border-zinc-700'
+                    ? 'bg-[#176B58] text-white dark:bg-[#65B89D] dark:text-[#0E1A15] border-[#176B58] dark:border-[#65B89D] font-semibold shadow-xs'
+                    : 'bg-white dark:bg-[#191F1C] text-[#58645F] dark:text-[#A7B2AB] border-[#DCE3DF] dark:border-[#343E38] hover:text-[#17211D] dark:hover:text-[#EDF2EE] hover:bg-[#EAEFEA] dark:hover:bg-[#202824]'
                 }`}
               >
                 <span>{btn.label}</span>
                 {btn.count > 0 && (
-                  <span className={`text-[10px] font-mono ${isSelected ? 'text-zinc-700' : 'text-zinc-500'}`}>
+                  <span className={`text-[10px] font-mono ${isSelected ? 'opacity-80' : 'text-[#7E8C86] dark:text-[#738078]'}`}>
                     ({btn.count})
                   </span>
                 )}
@@ -97,7 +97,7 @@ export const ClaimLedger: React.FC<ClaimLedgerProps> = ({
       </div>
 
       {/* Claim Ledger List */}
-      <div className="flex-1 overflow-y-auto divide-y divide-zinc-800/60 bg-[#0f1117]">
+      <div className="flex-1 overflow-y-auto divide-y divide-[#DCE3DF] dark:divide-[#343E38] bg-white dark:bg-[#191F1C]">
         {filteredClaims.length > 0 ? (
           filteredClaims.map((claim, idx) => {
             const isSelected = selectedClaimId === claim.claim_id;
@@ -108,14 +108,14 @@ export const ClaimLedger: React.FC<ClaimLedgerProps> = ({
                 onClick={() => onSelectClaim(claim.claim_id)}
                 className={`p-3.5 cursor-pointer transition flex flex-col gap-2 ${
                   isSelected
-                    ? 'bg-[#171a24] border-l-2 border-l-zinc-300'
-                    : 'hover:bg-[#13151d]'
+                    ? 'bg-[#EDF1EF] dark:bg-[#202824] border-l-2 border-l-[#176B58] dark:border-l-[#65B89D]'
+                    : 'hover:bg-[#EAEFEA] dark:hover:bg-[#202824]'
                 }`}
               >
                 {/* Meta Row: Claim Index, Verdict, Badges */}
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
-                    <span className="font-mono text-[11px] text-zinc-400 font-semibold">
+                    <span className="font-mono text-[11px] text-[#58645F] dark:text-[#A7B2AB] font-semibold">
                       [{idx + 1}]
                     </span>
                     <VerdictBadge verdict={claim.verdict} size="sm" />
@@ -126,7 +126,7 @@ export const ClaimLedger: React.FC<ClaimLedgerProps> = ({
                     {(claim.conflict || claim.verdict === 'ambiguous') && (
                       <span
                         title="Inter-source conflict detected"
-                        className="p-1 rounded bg-purple-950/60 text-purple-300 border border-purple-800/60 flex items-center"
+                        className="p-1 rounded bg-[#F4F0FC] dark:bg-[#6D28D9]/25 text-[#5B32A8] dark:text-[#B48DEF] border border-[#D5C6F5] dark:border-[#4E2582] flex items-center"
                       >
                         <GitFork className="w-3 h-3" />
                       </span>
@@ -136,32 +136,32 @@ export const ClaimLedger: React.FC<ClaimLedgerProps> = ({
                     {claim.human_review && (
                       <span
                         title={`Audited by ${claim.human_review.reviewer}: ${claim.human_review.action}`}
-                        className="p-1 rounded bg-zinc-800 text-zinc-300 border border-zinc-700 flex items-center"
+                        className="p-1 rounded bg-[#E8F5EE] dark:bg-[#176B58]/25 text-[#0E6245] dark:text-[#65B89D] border border-[#B7E1CA] dark:border-[#2C5E4E] flex items-center"
                       >
-                        <UserCheck className="w-3 h-3 text-emerald-400" />
+                        <UserCheck className="w-3 h-3" />
                       </span>
                     )}
 
-                    <span className="font-mono text-[10px] text-zinc-400 bg-zinc-900 px-1.5 py-0.5 rounded border border-zinc-800">
+                    <span className="font-mono text-[10px] text-[#58645F] dark:text-[#A7B2AB] bg-white dark:bg-[#191F1C] px-1.5 py-0.5 rounded border border-[#DCE3DF] dark:border-[#343E38]">
                       {Math.round(claim.confidence * 100)}%
                     </span>
                   </div>
                 </div>
 
                 {/* Claim Statement */}
-                <p className="font-sans text-xs text-zinc-200 leading-snug line-clamp-2">
+                <p className="font-sans text-xs text-[#17211D] dark:text-[#EDF2EE] leading-snug line-clamp-2">
                   &ldquo;{claim.claim_text}&rdquo;
                 </p>
 
                 {/* Explanation snippet */}
-                <p className="text-[11px] text-zinc-400 font-sans truncate">
+                <p className="text-[11px] text-[#58645F] dark:text-[#A7B2AB] font-sans truncate">
                   {claim.explanation}
                 </p>
               </div>
             );
           })
         ) : (
-          <div className="p-8 text-center text-xs text-zinc-500 italic">
+          <div className="p-8 text-center text-xs text-[#58645F] dark:text-[#A7B2AB] italic">
             No claims matching filter criteria.
           </div>
         )}
@@ -169,3 +169,4 @@ export const ClaimLedger: React.FC<ClaimLedgerProps> = ({
     </div>
   );
 };
+

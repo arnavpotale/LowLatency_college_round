@@ -22,6 +22,7 @@ from app.verification.types import (
 )
 from app.verification.mock_engine import generate_mock_audit_findings
 from app.verification.rules import validate_citations
+from app.verification.scoring import compute_trust_score, compute_risk_level
 
 
 class ClaimVerifier:
@@ -307,8 +308,8 @@ class VerificationEngine:
         amb = verdict_counts[VerdictCategory.AMBIGUOUS.value]
         inc = verdict_counts[VerdictCategory.INCONCLUSIVE.value]
 
-        trust_score = max(0.0, min(100.0, round(((sup * 1.0 - cont * 1.5 - unsup * 0.5 - amb * 0.3) / max(1, total)) * 100, 1)))
-        risk_level = "high" if cont > 0 or trust_score < 50 else ("medium" if unsup > 0 or trust_score < 75 else "low")
+        trust_score, decisive_claims = compute_trust_score(sup, cont, unsup)
+        risk_level = compute_risk_level(cont, unsup, trust_score)
 
         # Label takeaway clearly according to the active provider
         provider_name = self.claim_verifier.provider.name
@@ -344,6 +345,7 @@ class VerificationEngine:
             unsupported_claims=unsup,
             ambiguous_claims=amb,
             inconclusive_claims=inc,
+            decisive_claims=decisive_claims,
             trust_score=trust_score,
             risk_level=risk_level,
             key_takeaway=takeaway

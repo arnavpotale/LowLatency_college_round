@@ -27,7 +27,7 @@ export const AnswerHighlighter: React.FC<AnswerHighlighterProps> = ({
 
   if (!originalAnswer) {
     return (
-      <div className="p-8 text-center text-zinc-500 text-xs italic bg-[#15181e] border border-zinc-800 rounded-lg">
+      <div className="p-8 text-center text-[#58645F] dark:text-[#A7B2AB] text-xs italic bg-white dark:bg-[#191F1C] border border-[#DCE3DF] dark:border-[#343E38] rounded-lg">
         No answer submitted yet. Enter an AI answer above to begin audit.
       </div>
     );
@@ -35,7 +35,7 @@ export const AnswerHighlighter: React.FC<AnswerHighlighterProps> = ({
 
   if (!claims || claims.length === 0) {
     return (
-      <div className="p-5 rounded-lg bg-[#14161c] font-serif text-xs text-zinc-300 leading-relaxed whitespace-pre-wrap border border-zinc-800">
+      <div className="p-5 rounded-lg bg-white dark:bg-[#191F1C] font-serif text-xs text-[#17211D] dark:text-[#EDF2EE] leading-relaxed whitespace-pre-wrap border border-[#DCE3DF] dark:border-[#343E38]">
         {originalAnswer}
       </div>
     );
@@ -54,39 +54,39 @@ export const AnswerHighlighter: React.FC<AnswerHighlighterProps> = ({
     { bg: string; hover: string; border: string; activeRing: string; badge: string }
   > = {
     supported: {
-      bg: 'bg-emerald-950/40 text-emerald-100',
-      hover: 'hover:bg-emerald-950/60',
-      border: 'border-b-2 border-emerald-600/80',
-      activeRing: 'ring-2 ring-emerald-400 bg-emerald-950/70 font-medium',
-      badge: 'bg-emerald-950 text-emerald-300 border-emerald-800'
+      bg: 'bg-[#E8F5EE] text-[#0E6245] dark:bg-[#176B58]/30 dark:text-[#65B89D]',
+      hover: 'hover:bg-[#D6EFE3] dark:hover:bg-[#176B58]/45',
+      border: 'border-b-2 border-[#0E6245] dark:border-[#65B89D]',
+      activeRing: 'ring-2 ring-[#176B58] dark:ring-[#65B89D] bg-[#D6EFE3] dark:bg-[#176B58]/50 font-medium',
+      badge: 'bg-[#E8F5EE] dark:bg-[#176B58]/40 text-[#0E6245] dark:text-[#65B89D] border-[#B7E1CA] dark:border-[#2C5E4E]'
     },
     contradicted: {
-      bg: 'bg-rose-950/45 text-rose-100',
-      hover: 'hover:bg-rose-950/70',
-      border: 'border-b-2 border-rose-600/90',
-      activeRing: 'ring-2 ring-rose-400 bg-rose-950/75 font-medium',
-      badge: 'bg-rose-950 text-rose-300 border-rose-800'
+      bg: 'bg-[#FDF0F0] text-[#9E2222] dark:bg-[#B91C1C]/30 dark:text-[#F17575]',
+      hover: 'hover:bg-[#FCD8D8] dark:hover:bg-[#B91C1C]/45',
+      border: 'border-b-2 border-[#9E2222] dark:border-[#F17575]',
+      activeRing: 'ring-2 ring-[#9E2222] dark:ring-[#F17575] bg-[#FCD8D8] dark:bg-[#B91C1C]/50 font-medium',
+      badge: 'bg-[#FDF0F0] dark:bg-[#B91C1C]/40 text-[#9E2222] dark:text-[#F17575] border-[#F7C5C5] dark:border-[#6B2323]'
     },
     unsupported: {
-      bg: 'bg-amber-950/35 text-amber-100',
-      hover: 'hover:bg-amber-950/60',
-      border: 'border-b-2 border-dashed border-amber-600/80',
-      activeRing: 'ring-2 ring-amber-400 bg-amber-950/65 font-medium',
-      badge: 'bg-amber-950 text-amber-300 border-amber-800'
+      bg: 'bg-[#FEF6E9] text-[#965B0A] dark:bg-[#B45309]/30 dark:text-[#E5AC48]',
+      hover: 'hover:bg-[#FDE9C8] dark:hover:bg-[#B45309]/45',
+      border: 'border-b-2 border-dashed border-[#965B0A] dark:border-[#E5AC48]',
+      activeRing: 'ring-2 ring-[#965B0A] dark:ring-[#E5AC48] bg-[#FDE9C8] dark:bg-[#B45309]/50 font-medium',
+      badge: 'bg-[#FEF6E9] dark:bg-[#B45309]/40 text-[#965B0A] dark:text-[#E5AC48] border-[#F8DCAB] dark:border-[#633910]'
     },
     ambiguous: {
-      bg: 'bg-purple-950/40 text-purple-100',
-      hover: 'hover:bg-purple-950/65',
-      border: 'border-b-2 border-purple-600/80',
-      activeRing: 'ring-2 ring-purple-400 bg-purple-950/70 font-medium',
-      badge: 'bg-purple-950 text-purple-300 border-purple-800'
+      bg: 'bg-[#F4F0FC] text-[#5B32A8] dark:bg-[#6D28D9]/30 dark:text-[#B48DEF]',
+      hover: 'hover:bg-[#E9DDFB] dark:hover:bg-[#6D28D9]/45',
+      border: 'border-b-2 border-[#5B32A8] dark:border-[#B48DEF]',
+      activeRing: 'ring-2 ring-[#5B32A8] dark:ring-[#B48DEF] bg-[#E9DDFB] dark:bg-[#6D28D9]/50 font-medium',
+      badge: 'bg-[#F4F0FC] dark:bg-[#6D28D9]/40 text-[#5B32A8] dark:text-[#B48DEF] border-[#D5C6F5] dark:border-[#4E2582]'
     },
     inconclusive: {
-      bg: 'bg-zinc-800/50 text-zinc-200',
-      hover: 'hover:bg-zinc-800/70',
-      border: 'border-b-2 border-zinc-600',
-      activeRing: 'ring-2 ring-zinc-400 bg-zinc-800/80 font-medium',
-      badge: 'bg-zinc-800 text-zinc-300 border-zinc-700'
+      bg: 'bg-[#EFF3F1] text-[#58645F] dark:bg-[#343E38]/50 dark:text-[#A7B2AB]',
+      hover: 'hover:bg-[#DCE3DF] dark:hover:bg-[#343E38]/70',
+      border: 'border-b-2 border-[#58645F] dark:border-[#A7B2AB]',
+      activeRing: 'ring-2 ring-[#58645F] dark:ring-[#A7B2AB] bg-[#DCE3DF] dark:bg-[#343E38] font-medium',
+      badge: 'bg-[#EFF3F1] dark:bg-[#343E38] text-[#58645F] dark:text-[#A7B2AB] border-[#DCE3DF] dark:border-[#445149]'
     }
   };
 
@@ -111,7 +111,7 @@ export const AnswerHighlighter: React.FC<AnswerHighlighterProps> = ({
     if (rawStart > cursor) {
       const textBefore = chars.slice(cursor, rawStart).join('');
       segments.push(
-        <span key={`plain-${idx}-${cursor}`} className="text-zinc-400">
+        <span key={`plain-${idx}-${cursor}`} className="text-[#17211D] dark:text-[#EDF2EE]">
           {textBefore}
         </span>
       );
@@ -150,7 +150,7 @@ export const AnswerHighlighter: React.FC<AnswerHighlighterProps> = ({
   // Any remaining plain text after the last claim
   if (cursor < chars.length) {
     segments.push(
-      <span key="plain-tail" className="text-zinc-400">
+      <span key="plain-tail" className="text-[#17211D] dark:text-[#EDF2EE]">
         {chars.slice(cursor).join('')}
       </span>
     );
@@ -159,34 +159,35 @@ export const AnswerHighlighter: React.FC<AnswerHighlighterProps> = ({
   const wordCount = originalAnswer.trim().split(/\s+/).length;
 
   return (
-    <div className="flex flex-col h-full bg-[#12141a] border border-zinc-800/80 rounded-lg overflow-hidden">
+    <div className="flex flex-col h-full bg-white dark:bg-[#191F1C] border border-[#DCE3DF] dark:border-[#343E38] rounded-lg overflow-hidden shadow-xs">
       {/* Document Reader Header */}
-      <div className="p-3 border-b border-zinc-800/80 bg-[#14161f] flex items-center justify-between">
+      <div className="p-3 border-b border-[#DCE3DF] dark:border-[#343E38] bg-[#EDF1EF] dark:bg-[#202824] flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <FileText className="w-3.5 h-3.5 text-zinc-400" />
-          <span className="text-xs font-semibold uppercase tracking-wider text-zinc-200">
+          <FileText className="w-3.5 h-3.5 text-[#58645F] dark:text-[#A7B2AB]" />
+          <span className="text-xs font-semibold uppercase tracking-wider text-[#17211D] dark:text-[#EDF2EE]">
             Submitted Answer Document
           </span>
-          <span className="font-mono text-[10px] px-1.5 py-0.2 rounded bg-zinc-900 text-zinc-400 border border-zinc-800">
+          <span className="font-mono text-[10px] px-1.5 py-0.2 rounded bg-white dark:bg-[#191F1C] text-[#58645F] dark:text-[#A7B2AB] border border-[#DCE3DF] dark:border-[#343E38]">
             {claims.length} claims
           </span>
         </div>
-        <div className="flex items-center gap-1.5 text-[10px] text-zinc-400 font-mono">
-          <MousePointerClick className="w-3 h-3 text-zinc-400" />
+        <div className="flex items-center gap-1.5 text-[10px] text-[#58645F] dark:text-[#A7B2AB] font-mono">
+          <MousePointerClick className="w-3 h-3 text-[#58645F] dark:text-[#A7B2AB]" />
           <span>Click sentence to investigate</span>
         </div>
       </div>
 
       {/* Reader Content Body */}
-      <div className="flex-1 overflow-y-auto p-4 sm:p-5 font-sans text-xs leading-relaxed whitespace-pre-wrap selection:bg-zinc-700 selection:text-white bg-[#0f1117]">
+      <div className="flex-1 overflow-y-auto p-4 sm:p-5 font-sans text-xs leading-relaxed whitespace-pre-wrap selection:bg-[#EAEFEA] dark:selection:bg-[#26302B] bg-white dark:bg-[#191F1C] text-[#17211D] dark:text-[#EDF2EE]">
         {segments}
       </div>
 
       {/* Footer stats */}
-      <div className="px-3.5 py-1.5 border-t border-zinc-800/80 bg-[#12141a] flex items-center justify-between text-[11px] text-zinc-500 font-mono">
+      <div className="px-3.5 py-1.5 border-t border-[#DCE3DF] dark:border-[#343E38] bg-[#EDF1EF] dark:bg-[#202824] flex items-center justify-between text-[11px] text-[#58645F] dark:text-[#A7B2AB] font-mono">
         <span>{wordCount} words &bull; {originalAnswer.length} chars</span>
         <span>Offsets: [0:{originalAnswer.length}] Unicode code-points</span>
       </div>
     </div>
   );
 };
+

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { RouterProvider, useRouter } from './router/RouterContext';
+import { ThemeProvider } from './theme/ThemeContext';
 import { AppShell } from './components/AppShell';
 import { DashboardPage } from './pages/DashboardPage';
 import { CreateAuditPage } from './pages/CreateAuditPage';
@@ -78,7 +79,7 @@ const AppContent: React.FC = () => {
         const mockMd = `# Second Opinion — Audit Report: ${activeAudit.title}\n\n` +
           `**Audit ID:** ${activeAudit.audit_id}\n` +
           `**Status:** ${activeAudit.status.toUpperCase()}\n` +
-          `**Trust Score:** ${Math.round((activeAudit.summary?.trust_score || 0) * 100)}%\n\n` +
+          `**Trust Score:** ${activeAudit.summary?.trust_score !== null && activeAudit.summary?.trust_score !== undefined ? `${Math.round(activeAudit.summary.trust_score)}%` : 'N/A'}\n\n` +
           `## Executive Findings\n${activeAudit.summary?.key_takeaway || 'Analysis complete.'}\n\n` +
           `## Investigated Claims\n` +
           activeAudit.claims.map((c, i) =>
@@ -280,9 +281,11 @@ const AppContent: React.FC = () => {
 
 export const App: React.FC = () => {
   return (
-    <RouterProvider>
-      <AppContent />
-    </RouterProvider>
+    <ThemeProvider>
+      <RouterProvider>
+        <AppContent />
+      </RouterProvider>
+    </ThemeProvider>
   );
 };
 

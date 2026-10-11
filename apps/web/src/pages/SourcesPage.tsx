@@ -67,21 +67,21 @@ export const SourcesPage: React.FC<SourcesPageProps> = ({ activeAudit }) => {
   return (
     <div className="max-w-6xl mx-auto px-6 py-8 space-y-8">
       {/* Header */}
-      <div className="rounded-xl border border-blue-900/40 bg-gradient-to-b from-[#121624] to-[#0f121d] p-7 shadow-sm">
+      <div className="rounded-xl border border-[#DCE3DF] dark:border-[#343E38] bg-white dark:bg-[#191F1C] p-7 shadow-xs">
         <div className="space-y-2">
           <div className="flex items-center gap-2">
-            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-blue-950/80 border border-blue-800/80 text-blue-300 uppercase tracking-wider font-semibold">
+            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#EBF5F1] dark:bg-[#19332A] border border-[#BCD8CD] dark:border-[#2C5E4E] text-[#176B58] dark:text-[#65B89D] uppercase tracking-wider font-semibold">
               Grounding Repository
             </span>
-            <span className="text-xs text-zinc-400 font-mono">
+            <span className="text-xs text-[#58645F] dark:text-[#A7B2AB] font-mono">
               {sourcesList.length} total reference documents
             </span>
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-zinc-100 flex items-center gap-2.5">
-            <Files className="w-6 h-6 text-blue-400" />
+          <h1 className="text-2xl font-bold tracking-tight text-[#17211D] dark:text-[#EDF2EE] flex items-center gap-2.5">
+            <Files className="w-6 h-6 text-[#176B58] dark:text-[#65B89D]" />
             <span>Sources &amp; Reference Material Library</span>
           </h1>
-          <p className="text-xs text-zinc-400 leading-relaxed max-w-2xl">
+          <p className="text-xs text-[#58645F] dark:text-[#A7B2AB] leading-relaxed max-w-2xl">
             Inspect ingested reference files across your audits. Documents are parsed with line-number
             traceability and chunked for hybrid BM25 and vector retrieval.
           </p>
@@ -91,26 +91,26 @@ export const SourcesPage: React.FC<SourcesPageProps> = ({ activeAudit }) => {
       {/* Main Two-Column View */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Sources List (5 cols) */}
-        <div className="lg:col-span-5 rounded-xl border border-zinc-800/80 bg-[#12141a] p-4 space-y-4">
-          <div className="flex items-center justify-between pb-2 border-b border-zinc-800">
-            <span className="text-xs font-semibold text-zinc-300">Attached Documents</span>
+        <div className="lg:col-span-5 rounded-xl border border-[#DCE3DF] dark:border-[#343E38] bg-white dark:bg-[#191F1C] p-4 space-y-4 shadow-xs">
+          <div className="flex items-center justify-between pb-2 border-b border-[#DCE3DF] dark:border-[#343E38]">
+            <span className="text-xs font-semibold text-[#17211D] dark:text-[#EDF2EE]">Attached Documents</span>
             <div className="relative">
-              <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+              <Search className="w-3.5 h-3.5 text-[#7E8C86] dark:text-[#738078] absolute left-2.5 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
                 placeholder="Search filename..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-40 pl-8 pr-2.5 py-1 rounded bg-zinc-900 border border-zinc-800 text-xs text-zinc-200 placeholder-zinc-400 focus:outline-none"
+                className="w-40 pl-8 pr-2.5 py-1 rounded bg-white dark:bg-[#202824] border border-[#DCE3DF] dark:border-[#343E38] text-xs text-[#17211D] dark:text-[#EDF2EE] placeholder-[#7E8C86] dark:placeholder-[#738078] focus:outline-none focus:border-[#176B58] dark:focus:border-[#65B89D]"
               />
             </div>
           </div>
 
           {isLoading ? (
-            <div className="py-8 text-center text-xs text-zinc-400 font-mono">Loading sources...</div>
+            <div className="py-8 text-center text-xs text-[#58645F] dark:text-[#A7B2AB] font-mono">Loading sources...</div>
           ) : filteredSources.length === 0 ? (
-            <div className="py-8 text-center text-xs text-zinc-400 space-y-2">
-              <FileText className="w-8 h-8 mx-auto text-zinc-400" />
+            <div className="py-8 text-center text-xs text-[#58645F] dark:text-[#A7B2AB] space-y-2">
+              <FileText className="w-8 h-8 mx-auto text-[#7E8C86] dark:text-[#738078]" />
               <div>No reference documents found.</div>
             </div>
           ) : (
@@ -125,26 +125,26 @@ export const SourcesPage: React.FC<SourcesPageProps> = ({ activeAudit }) => {
                     onClick={() => setSelectedSource(item.source)}
                     className={`p-3 rounded-lg border cursor-pointer transition text-xs space-y-1.5 ${
                       isSelected
-                        ? 'bg-blue-950/40 border-blue-800/80'
-                        : 'bg-zinc-900/60 border-zinc-800/80 hover:bg-zinc-800/40'
+                        ? 'bg-[#EDF1EF] dark:bg-[#202824] border-[#176B58] dark:border-[#65B89D] ring-1 ring-[#176B58] dark:ring-[#65B89D]'
+                        : 'bg-white dark:bg-[#191F1C] border-[#DCE3DF] dark:border-[#343E38] hover:bg-[#EAEFEA] dark:hover:bg-[#202824]'
                     }`}
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2 truncate pr-2">
-                        <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-zinc-800 border border-zinc-700 text-zinc-300">
+                        <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-[#EDF1EF] dark:bg-[#202824] border border-[#DCE3DF] dark:border-[#343E38] text-[#58645F] dark:text-[#A7B2AB] font-semibold">
                           {ext}
                         </span>
-                        <span className="font-semibold text-zinc-200 truncate">
+                        <span className="font-semibold text-[#17211D] dark:text-[#EDF2EE] truncate">
                           {item.source.filename}
                         </span>
                       </div>
-                      <span className="text-[10px] font-mono text-zinc-400">
+                      <span className="text-[10px] font-mono text-[#58645F] dark:text-[#A7B2AB]">
                         {item.source.char_count} chars
                       </span>
                     </div>
-                    <div className="text-[11px] text-zinc-400 truncate flex items-center gap-1">
+                    <div className="text-[11px] text-[#58645F] dark:text-[#A7B2AB] truncate flex items-center gap-1">
                       <span>Audit:</span>
-                      <span className="text-zinc-300 font-medium truncate">{item.auditTitle}</span>
+                      <span className="text-[#17211D] dark:text-[#EDF2EE] font-medium truncate">{item.auditTitle}</span>
                     </div>
                   </div>
                 );
@@ -154,19 +154,19 @@ export const SourcesPage: React.FC<SourcesPageProps> = ({ activeAudit }) => {
         </div>
 
         {/* Source Content Preview (7 cols) */}
-        <div className="lg:col-span-7 rounded-xl border border-zinc-800/80 bg-[#12141a] p-6 space-y-5">
+        <div className="lg:col-span-7 rounded-xl border border-[#DCE3DF] dark:border-[#343E38] bg-white dark:bg-[#191F1C] p-6 space-y-5 shadow-xs">
           {selectedSource ? (
             <>
               {/* Header */}
-              <div className="flex items-center justify-between pb-3 border-b border-zinc-800/80">
+              <div className="flex items-center justify-between pb-3 border-b border-[#DCE3DF] dark:border-[#343E38]">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-blue-950 border border-blue-800 text-blue-300">
+                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[#EBF5F1] dark:bg-[#19332A] border border-[#BCD8CD] dark:border-[#2C5E4E] text-[#176B58] dark:text-[#65B89D] font-semibold">
                       {selectedSource.file_type.toUpperCase()}
                     </span>
-                    <h3 className="text-sm font-bold text-zinc-100">{selectedSource.filename}</h3>
+                    <h3 className="text-sm font-bold text-[#17211D] dark:text-[#EDF2EE]">{selectedSource.filename}</h3>
                   </div>
-                  <div className="text-[11px] font-mono text-zinc-400 flex items-center gap-3">
+                  <div className="text-[11px] font-mono text-[#58645F] dark:text-[#A7B2AB] flex items-center gap-3">
                     <span>ID: {selectedSource.source_id.slice(0, 8)}...</span>
                     <span>Length: {selectedSource.char_count} characters</span>
                   </div>
@@ -175,17 +175,17 @@ export const SourcesPage: React.FC<SourcesPageProps> = ({ activeAudit }) => {
 
               {/* Content Preview */}
               <div className="space-y-2">
-                <div className="text-[11px] font-mono uppercase tracking-wider text-zinc-400 flex items-center justify-between">
+                <div className="text-[11px] font-mono uppercase tracking-wider text-[#58645F] dark:text-[#A7B2AB] flex items-center justify-between font-semibold">
                   <span>PARSED CONTENT SNIPPET / EXTRACT</span>
-                  <span className="text-emerald-400">✓ Ingestion Verified</span>
+                  <span className="text-[#0E6245] dark:text-[#65B89D]">✓ Ingestion Verified</span>
                 </div>
-                <div className="p-4 rounded-lg bg-[#0d0f14] border border-zinc-800 text-xs font-mono text-zinc-300 whitespace-pre-wrap leading-relaxed max-h-96 overflow-y-auto">
+                <div className="p-4 rounded-lg bg-[#EDF1EF] dark:bg-[#202824] border border-[#DCE3DF] dark:border-[#343E38] text-xs font-mono text-[#17211D] dark:text-[#EDF2EE] whitespace-pre-wrap leading-relaxed max-h-96 overflow-y-auto">
                   {selectedSource.raw_content || selectedSource.content_snippet || 'No preview available.'}
                 </div>
               </div>
             </>
           ) : (
-            <div className="py-16 text-center text-xs text-zinc-400">
+            <div className="py-16 text-center text-xs text-[#58645F] dark:text-[#A7B2AB]">
               Select a source from the list to preview its extracted text.
             </div>
           )}
@@ -194,3 +194,4 @@ export const SourcesPage: React.FC<SourcesPageProps> = ({ activeAudit }) => {
     </div>
   );
 };
+

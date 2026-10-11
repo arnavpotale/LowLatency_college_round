@@ -189,6 +189,29 @@ def extract_quantities(text: str) -> List[Dict[str, Any]]:
         elif any(w in ctx for w in ["decrease", "decreased", "drop", "dropped", "reduced", "fell", "declined"]):
             qualifier = "decrease"
 
+        # Domain category / metric context (disambiguates distinct metrics like sick leave vs annual leave)
+        def detect_domain_category(c_text: str) -> Optional[str]:
+            c_low = c_text.lower()
+            if any(k in c_low for k in ["sick leave", "sick day", "paid sick"]):
+                return "sick_leave"
+            if any(k in c_low for k in ["annual leave", "vacation", "annual vacation"]):
+                return "annual_leave"
+            if "maternity" in c_low:
+                return "maternity_leave"
+            if "paternity" in c_low:
+                return "paternity_leave"
+            if "parental" in c_low:
+                return "parental_leave"
+            if "bereavement" in c_low:
+                return "bereavement_leave"
+            if "gross margin" in c_low:
+                return "gross_margin"
+            if "operating margin" in c_low:
+                return "operating_margin"
+            if "net margin" in c_low:
+                return "net_margin"
+            return None
+
         quantities.append({
             "value": val,
             "scaled_value": val * scale if scale > 1.0 else val,
@@ -197,9 +220,82 @@ def extract_quantities(text: str) -> List[Dict[str, Any]]:
             "qualifier": qualifier,
             "raw": match.group(0).strip(),
             "start": match.start(),
-            "end": match.end()
+            "end": match.end(),
+            "domain_category": detect_domain_category(ctx),
+            "context": ctx,
         })
     return quantities
+
+
+def evaluate_quantity_units(cq: Dict[str, Any], eq: Dict[str, Any]):
+    """Evaluates unit compatibility and scaling conversions between two quantities."""
+    c_val = cq["value"]
+    c_unit = cq["unit"]
+    e_val = eq["value"]
+    e_unit = eq["unit"]
+    time_converted = False
+    rate_discrepancy = False
+    same_unit = False
+    c_scaled_time = c_val
+    e_scaled_time = e_val
+
+    if c_unit.startswith("per_") and e_unit.startswith("per_"):
+        c_period = c_unit[4:]
+        e_period = e_unit[4:]
+        if c_period == e_period:
+            same_unit = True
+        else:
+            period_multipliers = {
+                "day": 365.0,
+                "week": 52.0,
+                "month": 12.0,
+                "year": 1.0,
+                "decade": 0.1,
+            }
+            if c_period in period_multipliers and e_period in period_multipliers:
+                c_scaled_time = c_val * period_multipliers[c_period]
+                e_scaled_time = e_val * period_multipliers[e_period]
+                same_unit = True
+                time_converted = True
+            else:
+                rate_discrepancy = True
+    elif (c_unit.startswith("per_") and not e_unit.startswith("per_")) or (e_unit.startswith("per_") and not c_unit.startswith("per_")):
+        rate_discrepancy = True
+    elif (c_unit == "day" and e_unit == "hour") or (c_unit == "hour" and e_unit == "day"):
+        same_unit = True
+        time_converted = True
+        if c_unit == "day" and e_unit == "hour":
+            c_scaled_time = c_val * 24.0
+            e_scaled_time = e_val
+        else:
+            c_scaled_time = c_val
+            e_scaled_time = e_val * 24.0
+    elif (c_unit == "year" and e_unit == "month") or (c_unit == "month" and e_unit == "year"):
+        same_unit = True
+        time_converted = True
+        if c_unit == "year" and e_unit == "month":
+            c_scaled_time = c_val * 12.0
+            e_scaled_time = e_val
+        else:
+            c_scaled_time = c_val
+            e_scaled_time = e_val * 12.0
+    elif (c_unit == e_unit and c_unit != ""):
+        same_unit = True
+    elif (cq["prefix"] == eq["prefix"] and cq["prefix"] != "") and (not c_unit and not e_unit):
+        same_unit = True
+
+    return same_unit, time_converted, rate_discrepancy, c_scaled_time, e_scaled_time
+
+
+def check_attribute_compatibility(cq: Dict[str, Any], eq: Dict[str, Any]) -> bool:
+    """Verifies that quantities quantify the same policy attribute / metric."""
+    c_cat = cq.get("domain_category")
+    e_cat = eq.get("domain_category")
+    if c_cat and e_cat and c_cat != e_cat:
+        return False
+    if c_cat and not e_cat:
+        return False
+    return True
 
 
 def compare_quantities(
@@ -208,128 +304,92 @@ def compare_quantities(
 ) -> Tuple[Optional[PairRelation], Optional[str]]:
     """
     Compares numerical quantities between claim and evidence passage.
+    Prioritizes corroborating matches across candidate quantities and prevents
+    cross-attribute false contradictions (e.g., annual leave vs sick leave).
     Returns (PairRelation, rationale) if a decisive numerical match or mismatch is found.
     """
     if not claim_quantities or not evidence_quantities:
         return None, None
 
+    # Pass 1: Check if any candidate evidence quantity ENTAILS a claim assertion
     for cq in claim_quantities:
         c_val = cq["value"]
-        c_unit = cq["unit"]
-        c_qual = cq["qualifier"]
         c_scaled = cq.get("scaled_value", c_val)
-
         for eq in evidence_quantities:
             e_val = eq["value"]
-            e_unit = eq["unit"]
+            e_scaled = eq.get("scaled_value", e_val)
+            same_unit, time_converted, rate_discrepancy, c_scaled_time, e_scaled_time = evaluate_quantity_units(cq, eq)
+            if not same_unit or not check_attribute_compatibility(cq, eq):
+                continue
+
+            raw_c = cq["raw"]
+            raw_e = eq["raw"]
+            if time_converted:
+                if abs(c_scaled_time - e_scaled_time) <= 0.1:
+                    return PairRelation.ENTAILS, f"Time durations match ({raw_c} is equivalent to {raw_e})."
+            else:
+                if abs(c_scaled - e_scaled) <= 0.001:
+                    return PairRelation.ENTAILS, f"Numerical values match ({raw_c})."
+
+    # Pass 2: Check for genuine contradictions among compatible candidate quantities
+    for cq in claim_quantities:
+        c_val = cq["value"]
+        c_qual = cq["qualifier"]
+        c_scaled = cq.get("scaled_value", c_val)
+        for eq in evidence_quantities:
+            e_val = eq["value"]
             e_qual = eq["qualifier"]
             e_scaled = eq.get("scaled_value", e_val)
+            same_unit, time_converted, rate_discrepancy, c_scaled_time, e_scaled_time = evaluate_quantity_units(cq, eq)
+            raw_c = cq["raw"]
+            raw_e = eq["raw"]
 
-            time_converted = False
-            rate_discrepancy = False
-
-            # Rate frequency comparison (e.g. per year vs per decade or per month)
-            if c_unit.startswith("per_") and e_unit.startswith("per_"):
-                c_period = c_unit[4:]
-                e_period = e_unit[4:]
-                if c_period == e_period:
-                    same_unit = True
-                else:
-                    period_multipliers = {
-                        "day": 365.0,
-                        "week": 52.0,
-                        "month": 12.0,
-                        "year": 1.0,
-                        "decade": 0.1,
-                    }
-                    if c_period in period_multipliers and e_period in period_multipliers:
-                        c_rate_annual = c_val * period_multipliers[c_period]
-                        e_rate_annual = e_val * period_multipliers[e_period]
-                        same_unit = True
-                        time_converted = True
-                        c_scaled_time = c_rate_annual
-                        e_scaled_time = e_rate_annual
-                    else:
-                        same_unit = False
-                        rate_discrepancy = True
-            elif (c_unit.startswith("per_") and not e_unit.startswith("per_")) or (e_unit.startswith("per_") and not c_unit.startswith("per_")):
-                same_unit = False
-                rate_discrepancy = True
-            elif (c_unit == "day" and e_unit == "hour") or (c_unit == "hour" and e_unit == "day"):
-                same_unit = True
-                time_converted = True
-                if c_unit == "day" and e_unit == "hour":
-                    c_scaled_time = c_val * 24.0
-                    e_scaled_time = e_val
-                else:
-                    c_scaled_time = c_val
-                    e_scaled_time = e_val * 24.0
-            elif (c_unit == "year" and e_unit == "month") or (c_unit == "month" and e_unit == "year"):
-                same_unit = True
-                time_converted = True
-                if c_unit == "year" and e_unit == "month":
-                    c_scaled_time = c_val * 12.0
-                    e_scaled_time = e_val
-                else:
-                    c_scaled_time = c_val
-                    e_scaled_time = e_val * 12.0
-            elif (c_unit == e_unit and c_unit != ""):
-                same_unit = True
-            elif (cq["prefix"] == eq["prefix"] and cq["prefix"] != "") and (not c_unit and not e_unit):
-                same_unit = True
-            else:
-                same_unit = False
-
-            if rate_discrepancy:
+            if rate_discrepancy and check_attribute_compatibility(cq, eq):
                 return PairRelation.CONTRADICTS, (
-                    f"Rate frequency discrepancy: Claim specifies rate of {cq['raw']}, "
-                    f"conflicting with source terms {eq['raw']}."
+                    f"Rate frequency discrepancy: Claim specifies rate of {raw_c}, "
+                    f"conflicting with source terms {raw_e}."
                 )
 
-            if same_unit:
-                # 1. Opposite directional trend (e.g. 15% drop vs 8% increase)
-                if (c_qual in ["decrease", "reduced"] and e_qual in ["increase", "growth"]) or \
-                   (c_qual in ["increase", "growth"] and e_qual in ["decrease", "reduced"]):
+            if not same_unit or not check_attribute_compatibility(cq, eq):
+                continue
+
+            # 1. Opposite directional trend (e.g. 15% drop vs 8% increase)
+            if (c_qual in ["decrease", "reduced"] and e_qual in ["increase", "growth"]) or \
+               (c_qual in ["increase", "growth"] and e_qual in ["decrease", "reduced"]):
+                return PairRelation.CONTRADICTS, (
+                    f"Numerical contradiction: Claim asserts a {c_qual} of {raw_c}, "
+                    f"whereas source states an {e_qual} of {raw_e}."
+                )
+
+            # 2. Maximum safe limit exceeded (e.g. claim says 100mg, evidence specifies max 50mg)
+            if e_qual == "maximum" and c_val > e_val:
+                return PairRelation.CONTRADICTS, (
+                    f"Numerical contradiction: Claim specifies {raw_c}, "
+                    f"exceeding the source maximum threshold of {raw_e}."
+                )
+
+            # 3. Minimum requirement violated
+            if e_qual == "minimum" and c_val < e_val:
+                return PairRelation.CONTRADICTS, (
+                    f"Numerical contradiction: Claim specifies {raw_c}, "
+                    f"below the source minimum threshold of {raw_e}."
+                )
+
+            # 4. Check time mismatch if converted
+            if time_converted:
+                if abs(c_scaled_time - e_scaled_time) > 0.1:
                     return PairRelation.CONTRADICTS, (
-                        f"Numerical contradiction: Claim asserts a {c_qual} of {cq['raw']}, "
-                        f"whereas source states an {e_qual} of {eq['raw']}."
+                        f"Numerical discrepancy: Claim states {raw_c} ({c_scaled_time:.0f}h), "
+                        f"conflicting with {raw_e} ({e_scaled_time:.0f}h) in source."
                     )
 
-                # 2. Maximum safe limit exceeded (e.g. claim says 100mg, evidence specifies max 50mg)
-                if e_qual == "maximum" and c_val > e_val:
-                    return PairRelation.CONTRADICTS, (
-                        f"Numerical contradiction: Claim specifies {cq['raw']}, "
-                        f"exceeding the source maximum threshold of {eq['raw']}."
-                    )
-
-                # 3. Minimum requirement violated
-                if e_qual == "minimum" and c_val < e_val:
-                    return PairRelation.CONTRADICTS, (
-                        f"Numerical contradiction: Claim specifies {cq['raw']}, "
-                        f"below the source minimum threshold of {eq['raw']}."
-                    )
-
-                # 4. Check time mismatch if converted
-                if time_converted:
-                    if abs(c_scaled_time - e_scaled_time) > 0.1:
-                        return PairRelation.CONTRADICTS, (
-                            f"Numerical discrepancy: Claim states {cq['raw']} ({c_scaled_time:.0f}h), "
-                            f"conflicting with {eq['raw']} ({e_scaled_time:.0f}h) in source."
-                        )
-                    else:
-                        return PairRelation.ENTAILS, f"Time durations match ({cq['raw']} is equivalent to {eq['raw']})."
-
-                # 5. Direct value conflict (e.g. 100mg vs 25mg, or 10000 vs 100)
-                diff = abs(c_scaled - e_scaled)
-                if diff > 0.001:
-                    return PairRelation.CONTRADICTS, (
-                        f"Numerical discrepancy: Claim states {cq['raw']}, "
-                        f"conflicting with {eq['raw']} in source."
-                    )
-
-                # 6. Exact matching value
-                if diff <= 0.001:
-                    return PairRelation.ENTAILS, f"Numerical values match ({cq['raw']})."
+            # 5. Direct value conflict
+            diff = abs(c_scaled - e_scaled)
+            if diff > 0.001:
+                return PairRelation.CONTRADICTS, (
+                    f"Numerical discrepancy: Claim states {raw_c}, "
+                    f"conflicting with {raw_e} in source."
+                )
 
     return None, None
 
@@ -615,13 +675,20 @@ def generate_claim_autopsy(
             )
 
         if c_qty_strs and e_qty_strs:
+            # Pick the evidence quantity that is attribute-compatible with the claim quantity
+            best_e_qty_str = e_qty_strs[0]
+            for cq in claim_quantities:
+                for eq in ev_quantities:
+                    if check_attribute_compatibility(cq, eq) and cq.get("unit") == eq.get("unit"):
+                        best_e_qty_str = format_qty(eq)
+                        break
             diverging = c_qty_strs[0]
             return ClaimAutopsySchema(
                 problematic_phrase=diverging,
                 issue_type="quantity_mismatch",
                 claim_elements=c_qty_strs,
-                evidence_elements=e_qty_strs,
-                diagnosis=f"Numerical conflict: claim asserts '{diverging}' but authoritative source documents '{e_qty_strs[0]}'."
+                evidence_elements=[best_e_qty_str],
+                diagnosis=f"Numerical conflict: claim asserts '{diverging}' but authoritative source documents '{best_e_qty_str}'."
             )
 
         # Polarity conflict?

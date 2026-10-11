@@ -5,7 +5,7 @@ import uuid
 import logging
 from datetime import datetime
 from typing import Optional, List
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status, Query, Response
 from fastapi.responses import PlainTextResponse
 from sqlalchemy.orm import Session
 
@@ -23,7 +23,14 @@ from app.schemas import (
 )
 from app.ingestion.parser import extract_text_from_file, sanitize_filename
 from app.verification import default_verifier, get_verification_engine, ProviderUnavailableError
-from app.reporting.generator import generate_audit_markdown_report
+from app.verification.scoring import compute_trust_score, compute_risk_level
+from app.reporting.generator import (
+    generate_audit_markdown_report,
+    generate_executive_markdown_report,
+    generate_txt_report,
+    generate_docx_report,
+    generate_pdf_report
+)
 from app.verification.adversarial_suite import ADVERSARIAL_BENCHMARK_CASES, run_adversarial_suite
 
 logger = logging.getLogger(__name__)
@@ -269,15 +276,49 @@ def get_audit_results(audit_id: str, db: Session = Depends(get_db)):
     return audit.to_schema()
 
 
-@router.get("/{audit_id}/report", response_class=PlainTextResponse)
-def get_audit_report(audit_id: str, db: Session = Depends(get_db)):
-    """Fetch human-readable Markdown report for the audit."""
+@router.get("/{audit_id}/report")
+def get_audit_report(
+    audit_id: str,
+    format: str = Query("markdown", description="Report format: markdown, txt, docx, pdf"),
+    type: str = Query("detailed", description="Report scope: detailed or executive"),
+    db: Session = Depends(get_db)
+):
+    """Fetch structured audit report in Markdown, TXT, DOCX, or PDF format."""
     audit = db.query(AuditModel).filter(AuditModel.id == audit_id).first()
     if not audit:
         raise HTTPException(status_code=404, detail="Audit not found")
     
     schema = audit.to_schema()
-    return generate_audit_markdown_report(schema)
+    fmt = format.lower().strip()
+    scope = type.lower().strip()
+    if scope not in ("detailed", "executive"):
+        scope = "detailed"
+
+    if fmt == "docx":
+        content_bytes = generate_docx_report(schema, report_type=scope)
+        filename = f"audit_{audit_id[:8]}_{scope}.docx"
+        return Response(
+            content=content_bytes,
+            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            headers={"Content-Disposition": f"attachment; filename=\"{filename}\""}
+        )
+    elif fmt == "pdf":
+        pdf_bytes = generate_pdf_report(schema, report_type=scope)
+        filename = f"audit_{audit_id[:8]}_{scope}.pdf"
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f"attachment; filename=\"{filename}\""}
+        )
+    elif fmt == "txt":
+        txt_content = generate_txt_report(schema, report_type=scope)
+        return PlainTextResponse(content=txt_content, media_type="text/plain")
+    else:  # markdown default
+        if scope == "executive":
+            md_content = generate_executive_markdown_report(schema)
+        else:
+            md_content = generate_audit_markdown_report(schema)
+        return PlainTextResponse(content=md_content, media_type="text/markdown")
 
 
 @router.post("/{audit_id}/claims/{claim_id}/review", response_model=AuditResponse)
@@ -339,6 +380,24 @@ def review_claim(
         verdict_counts[v] = verdict_counts.get(v, 0) + 1
     results["verdicts"] = verdict_counts
     results["claims"] = claims
+
+    sup = verdict_counts.get("supported", 0)
+    cont = verdict_counts.get("contradicted", 0)
+    unsup = verdict_counts.get("unsupported", 0)
+    amb = verdict_counts.get("ambiguous", 0)
+    inc = verdict_counts.get("inconclusive", 0)
+    score, decisive = compute_trust_score(sup, cont, unsup)
+    risk_level = compute_risk_level(cont, unsup, score)
+
+    if "summary" in results and isinstance(results["summary"], dict):
+        results["summary"]["supported_claims"] = sup
+        results["summary"]["contradicted_claims"] = cont
+        results["summary"]["unsupported_claims"] = unsup
+        results["summary"]["ambiguous_claims"] = amb
+        results["summary"]["inconclusive_claims"] = inc
+        results["summary"]["decisive_claims"] = decisive
+        results["summary"]["trust_score"] = score
+        results["summary"]["risk_level"] = risk_level
 
     audit.results_json = json.dumps(results)
     db.commit()

@@ -91,6 +91,28 @@ ADVERSARIAL_BENCHMARK_CASES = [
         "source_name": "postgres_config.txt",
         "claim_text": "The default max_connections parameter is set to 100 in postgresql.conf.",
         "expected_verdict": "supported"
+    },
+    {
+        "id": "adv_09_cross_attribute_numerical",
+        "title": "Cross-Attribute Numerical Disambiguation",
+        "category": "numerical_disambiguation",
+        "description": "Tests that distinct leave allowances (12 days sick leave vs 18 days annual leave) in the same document are not falsely cross-contradicted.",
+        "adversarial_mechanism": "Multiple quantities with identical units ('days') quantifying different policy attributes",
+        "source_text": "Company Policy Handbook: Full-time employees receive 18 days of paid annual leave per year. In addition, employees receive 12 days of paid sick leave per calendar year.",
+        "source_name": "employee_handbook.txt",
+        "claim_text": "Employees receive 12 days of paid sick leave annually.",
+        "expected_verdict": "supported"
+    },
+    {
+        "id": "adv_10_missing_evidence_not_contradiction",
+        "title": "Missing Evidence Grounding (Non-Contradiction)",
+        "category": "missing_evidence",
+        "description": "Tests that unmentioned assertions are correctly classified as unsupported rather than falsely claimed as proven contradictions.",
+        "adversarial_mechanism": "Absence of evidence is treated as ungrounded assertion, not proven factual falsity",
+        "source_text": "Benefits Monograph: Standard employee package includes medical insurance, life insurance, and 401(k) matching up to 5%.",
+        "source_name": "benefits_monograph.txt",
+        "claim_text": "Employees receive dental coverage with up to $2,000 in annual preventative benefits.",
+        "expected_verdict": "unsupported"
     }
 ]
 
@@ -127,12 +149,13 @@ def run_adversarial_suite() -> Dict[str, Any]:
         duration_ms = round((time.time() - t0) * 1000, 1)
 
         claims = audit_res.get("claims", [])
-        actual_verdict = claims[0].get("verdict") if claims else "unsupported"
+        raw_verdict = claims[0].get("verdict") if claims else "unsupported"
+        actual_verdict = raw_verdict.value if hasattr(raw_verdict, "value") else str(raw_verdict)
         explanation = claims[0].get("explanation") if claims else "No claim evaluated"
         autopsy = claims[0].get("autopsy") if claims else None
         conflict = claims[0].get("conflict") if claims else None
 
-        is_passed = (actual_verdict == case["expected_verdict"])
+        is_passed = (actual_verdict.lower() == case["expected_verdict"].lower())
         if is_passed:
             passed_count += 1
 

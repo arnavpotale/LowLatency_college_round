@@ -1,4 +1,8 @@
-from typing import Dict, List, Set
+import io
+import re
+from typing import Dict, List, Set, Optional
+import docx
+import pymupdf
 from app.schemas import AuditResponse, Evidence, Claim, VerdictCategory
 
 
@@ -118,8 +122,18 @@ def generate_audit_markdown_report(audit: AuditResponse) -> str:
     ])
 
     if audit.summary:
+        if audit.summary.trust_score is not None:
+            score_line = f"- **Overall Trust Score:** {audit.summary.trust_score:.1f}/100"
+        else:
+            score_line = "- **Overall Trust Score:** N/A (no decisive claims)"
+
+        decisive_claims_cnt = (
+            audit.summary.decisive_claims
+            if getattr(audit.summary, "decisive_claims", 0)
+            else (audit.summary.supported_claims + audit.summary.contradicted_claims + audit.summary.unsupported_claims)
+        )
         lines.extend([
-            f"- **Overall Trust Score:** {audit.summary.trust_score:.1f}/100",
+            score_line,
             f"- **Risk Assessment:** {audit.summary.risk_level.upper()}",
             f"- **Total Claims Audited:** {audit.summary.total_claims}",
             f"  - Supported: {audit.summary.supported_claims}",
@@ -127,6 +141,8 @@ def generate_audit_markdown_report(audit: AuditResponse) -> str:
             f"  - Unsupported: {audit.summary.unsupported_claims}",
             f"  - Ambiguous: {audit.summary.ambiguous_claims}",
             f"  - Inconclusive: {audit.summary.inconclusive_claims}",
+            f"- **Decisively Evaluated Claims:** {decisive_claims_cnt}",
+            f"  - *Trust Score Formula:* Supported ÷ (Supported + Contradicted + Unsupported) × 100. Ambiguous and inconclusive assertions are excluded from coverage denominator.",
         ])
         if audit.summary.key_takeaway and audit.summary.key_takeaway.strip():
             takeaway_lines = audit.summary.key_takeaway.strip().splitlines()
@@ -327,3 +343,210 @@ def generate_audit_markdown_report(audit: AuditResponse) -> str:
 
     lines.append("")
     return "\n".join(lines).strip() + "\n"
+
+
+def generate_executive_markdown_report(audit: AuditResponse) -> str:
+    """
+    Generates a concise, high-level executive audit summary focusing on key risk metrics,
+    verdict distributions, critical contradictions, and governance recommendations.
+    """
+    title_text = audit.title.strip() if audit.title and audit.title.strip() else "Untitled Audit"
+    score_str = (
+        f"{audit.summary.trust_score:.1f} / 100"
+        if (audit.summary and audit.summary.trust_score is not None)
+        else "N/A"
+    )
+    risk = audit.summary.risk_level.upper() if audit.summary and audit.summary.risk_level else "UNKNOWN"
+
+    lines: List[str] = [
+        "# Second Opinion — Executive Audit Summary",
+        "",
+        "## Executive Overview",
+        f"- **Audit Title:** {title_text}",
+        f"- **Audit ID:** `{audit.audit_id}`",
+        f"- **Audit Status:** {audit.status.value.upper()}",
+        f"- **Audit Date:** {audit.created_at.strftime('%Y-%m-%d %H:%M:%S UTC')}",
+        f"- **Overall Reliability Trust Score:** {score_str}",
+        f"- **Governance Risk Rating:** {risk}",
+        "",
+        "---",
+        "## Summary of Findings",
+    ]
+
+    if audit.summary:
+        decisive_claims_cnt = (
+            audit.summary.decisive_claims
+            if getattr(audit.summary, "decisive_claims", 0)
+            else (audit.summary.supported_claims + audit.summary.contradicted_claims + audit.summary.unsupported_claims)
+        )
+        lines.extend([
+            f"- **Total Assertions Audited:** {audit.summary.total_claims}",
+            f"- **Decisively Evaluated Claims:** {decisive_claims_cnt}",
+            f"- **Fully Corroborated (Supported):** {audit.summary.supported_claims}",
+            f"- **Factual Contradictions:** {audit.summary.contradicted_claims}",
+            f"- **Ungrounded (Unsupported):** {audit.summary.unsupported_claims}",
+            f"- **Source Disagreements (Ambiguous):** {audit.summary.ambiguous_claims}",
+            f"- **Inconclusive Context:** {audit.summary.inconclusive_claims}",
+            f"- **Scoring Method:** Supported ÷ (Supported + Contradicted + Unsupported) × 100",
+        ])
+    lines.append("")
+
+    # Flagged critical assertions
+    flagged = [c for c in audit.claims if c.verdict in (VerdictCategory.CONTRADICTED, VerdictCategory.AMBIGUOUS)]
+    if flagged:
+        lines.extend([
+            "---",
+            "## Critical Assertions Requiring Remediation",
+            "",
+        ])
+        for i, c in enumerate(flagged, 1):
+            lines.append(f"### Assertion #{i:02d}: [{c.verdict.value.upper()}]")
+            lines.append(f"> \"{c.claim_text.strip()}\"")
+            lines.append("")
+            lines.append(f"- **Audit Finding:** {c.explanation.strip()}")
+            if c.conflict:
+                lines.append(f"- **Cross-Source Conflict:** {c.conflict.description.strip()}")
+            if c.autopsy and c.autopsy.diagnosis:
+                lines.append(f"- **Forensic Autopsy:** {c.autopsy.diagnosis.strip()}")
+            lines.append("")
+    else:
+        lines.extend([
+            "---",
+            "## Risk Assessment",
+            "No direct factual contradictions or cross-source ambiguities were detected in the audited material.",
+            "",
+        ])
+
+    lines.extend([
+        "---",
+        "## Actionable Governance Recommendations",
+    ])
+    if audit.summary and audit.summary.contradicted_claims > 0:
+        lines.append("- **REJECT OR REVISE:** One or more assertions directly contradict authoritative reference documentation. Correct the underlying model generation before external dissemination.")
+    elif audit.summary and audit.summary.unsupported_claims > 0:
+        lines.append("- **GROUNDING CAUTION:** Gaps in evidence grounding identified. Attach supplementary reference materials or seek manual subject-matter review.")
+    else:
+        lines.append("- **VERIFIED:** All assertions are corroborated by attached reference documentation. Low compliance risk.")
+
+    lines.append("")
+    return "\n".join(lines).strip() + "\n"
+
+
+def generate_txt_report(audit: AuditResponse, report_type: str = "detailed") -> str:
+    """
+    Generates a clean plain-text ASCII formatted audit report.
+    """
+    md = generate_executive_markdown_report(audit) if report_type == "executive" else generate_audit_markdown_report(audit)
+    txt = re.sub(r'#+\s*', '', md)
+    txt = re.sub(r'\*\*(.*?)\*\*', r'\1', txt)
+    txt = re.sub(r'`(.*?)`', r'\1', txt)
+    txt = re.sub(r'---', '------------------------------------------------------------', txt)
+    return txt.strip() + "\n"
+
+
+def generate_docx_report(audit: AuditResponse, report_type: str = "detailed") -> bytes:
+    """
+    Generates a formatted native DOCX (.docx) document for the audit.
+    """
+    doc = docx.Document()
+    title = audit.title.strip() if audit.title and audit.title.strip() else "Untitled Audit"
+
+    if report_type == "executive":
+        doc.add_heading("Second Opinion — Executive Audit Summary", 0)
+        doc.add_heading(f"Audit Title: {title}", level=1)
+        doc.add_paragraph(f"Audit ID: {audit.audit_id}")
+        doc.add_paragraph(f"Date: {audit.created_at.strftime('%Y-%m-%d %H:%M:%S UTC')}")
+        if audit.summary:
+            score_disp = f"{audit.summary.trust_score:.1f} / 100" if audit.summary.trust_score is not None else "N/A"
+            doc.add_paragraph(f"Reliability Trust Score: {score_disp} | Risk: {audit.summary.risk_level.upper()}")
+            p_stats = doc.add_paragraph()
+            p_stats.add_run(f"Assertions Audited: {audit.summary.total_claims} | ")
+            p_stats.add_run(f"Supported: {audit.summary.supported_claims} | ")
+            p_stats.add_run(f"Contradicted: {audit.summary.contradicted_claims} | ")
+            p_stats.add_run(f"Unsupported: {audit.summary.unsupported_claims}")
+
+        flagged = [c for c in audit.claims if c.verdict in (VerdictCategory.CONTRADICTED, VerdictCategory.AMBIGUOUS)]
+        if flagged:
+            doc.add_heading("Critical Assertions Requiring Remediation", level=2)
+            for c in flagged:
+                p = doc.add_paragraph()
+                p.add_run(f"[{c.verdict.value.upper()}] ").bold = True
+                p.add_run(f"\"{c.claim_text}\"\n")
+                p.add_run(f"Audit Finding: {c.explanation}\n")
+                if c.autopsy and c.autopsy.diagnosis:
+                    p.add_run(f"Autopsy Diagnosis: {c.autopsy.diagnosis}")
+    else:
+        doc.add_heading("Second Opinion — Forensic Audit Dossier", 0)
+        doc.add_heading(f"Audit Title: {title}", level=1)
+        doc.add_paragraph(f"Audit ID: {audit.audit_id}")
+        doc.add_paragraph(f"Status: {audit.status.value.upper()}")
+        doc.add_paragraph(f"Date: {audit.created_at.strftime('%Y-%m-%d %H:%M:%S UTC')}")
+        if audit.summary:
+            score_disp = f"{audit.summary.trust_score:.1f} / 100" if audit.summary.trust_score is not None else "N/A"
+            doc.add_paragraph(f"Trust Score: {score_disp} | Risk: {audit.summary.risk_level.upper()}")
+
+        doc.add_heading("Complete Claim Register", level=2)
+        for i, c in enumerate(audit.claims, 1):
+            p = doc.add_paragraph()
+            p.add_run(f"Claim #{i:02d} [{c.verdict.value.upper()}] ").bold = True
+            p.add_run(f"\"{c.claim_text}\"\n")
+            p.add_run(f"Audit Finding: {c.explanation}\n")
+            if c.evidence_ids:
+                p.add_run(f"Referenced Citations: {', '.join(c.evidence_ids)}\n")
+            if c.autopsy and c.autopsy.diagnosis:
+                p.add_run(f"Forensic Autopsy: {c.autopsy.diagnosis}\n")
+
+    buf = io.BytesIO()
+    doc.save(buf)
+    return buf.getvalue()
+
+
+def generate_pdf_report(audit: AuditResponse, report_type: str = "detailed") -> bytes:
+    """
+    Generates a structured native PDF document using PyMuPDF.
+    """
+    pdf_doc = pymupdf.open()
+    title = audit.title.strip() if audit.title and audit.title.strip() else "Untitled Audit"
+    md_content = generate_executive_markdown_report(audit) if report_type == "executive" else generate_audit_markdown_report(audit)
+
+    clean_lines = []
+    for line in md_content.splitlines():
+        l = re.sub(r'\*\*(.*?)\*\*', r'\1', line)
+        l = re.sub(r'`(.*?)`', r'\1', l)
+        clean_lines.append(l)
+
+    lines_per_page = 46
+    chunks = [clean_lines[i:i + lines_per_page] for i in range(0, max(1, len(clean_lines)), lines_per_page)]
+
+    for page_idx, chunk in enumerate(chunks):
+        page = pdf_doc.new_page(width=595, height=842)
+        y = 48
+        page.insert_text((50, y), f"SECOND OPINION | {title.upper()} | PAGE {page_idx + 1} OF {len(chunks)}", fontsize=8, color=(0.4, 0.4, 0.4))
+        y += 26
+
+        for line in chunk:
+            if line.startswith("# "):
+                page.insert_text((50, y), line[2:], fontsize=15, fontname="helv", color=(0.05, 0.1, 0.2))
+                y += 22
+            elif line.startswith("## "):
+                page.insert_text((50, y), line[3:], fontsize=11, fontname="helv", color=(0.1, 0.2, 0.3))
+                y += 18
+            elif line.startswith("### "):
+                page.insert_text((50, y), line[4:], fontsize=9.5, fontname="helv", color=(0.15, 0.25, 0.35))
+                y += 15
+            elif line.startswith("---"):
+                page.draw_line((50, y), (545, y), color=(0.8, 0.8, 0.8), width=0.5)
+                y += 14
+            else:
+                text_to_print = line
+                if len(text_to_print) > 92:
+                    sub_lines = [text_to_print[j:j+88] for j in range(0, len(text_to_print), 88)]
+                    for sl in sub_lines:
+                        page.insert_text((50, y), sl, fontsize=8.5, fontname="helv", color=(0.15, 0.15, 0.15))
+                        y += 12.5
+                else:
+                    page.insert_text((50, y), text_to_print, fontsize=8.5, fontname="helv", color=(0.15, 0.15, 0.15))
+                    y += 12.5
+
+    return pdf_doc.tobytes()
+

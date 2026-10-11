@@ -86,25 +86,25 @@ export const SourceUploader: React.FC<SourceUploaderProps> = ({
   };
 
   return (
-    <div className="bg-[#15181e] rounded-lg border border-zinc-800 p-4 flex flex-col gap-3">
+    <div className="bg-white dark:bg-[#191F1C] rounded-lg border border-[#DCE3DF] dark:border-[#343E38] p-4 flex flex-col gap-3 shadow-xs">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-300 flex items-center gap-2">
-            <FileText className="w-3.5 h-3.5 text-zinc-400" />
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-[#17211D] dark:text-[#EDF2EE] flex items-center gap-2">
+            <FileText className="w-3.5 h-3.5 text-[#176B58] dark:text-[#65B89D]" />
             Ground-Truth Sources &amp; Evidence
           </h2>
-          <p className="text-[11px] text-zinc-500">
+          <p className="text-[11px] text-[#58645F] dark:text-[#A7B2AB]">
             Reference documents for claim grounding (.pdf, .docx, .txt, .md, max 10MB)
           </p>
         </div>
 
         {/* Mode Toggle */}
-        <div className="flex items-center bg-[#101216] p-0.5 rounded border border-zinc-800 text-xs font-medium">
+        <div className="flex items-center bg-[#F6F7F8] dark:bg-[#111614] p-0.5 rounded border border-[#DCE3DF] dark:border-[#343E38] text-xs font-medium">
           <button
             type="button"
             onClick={() => setMode('file')}
             className={`px-2.5 py-1 rounded transition text-xs ${
-              mode === 'file' ? 'bg-zinc-800 text-zinc-100 font-semibold' : 'text-zinc-500 hover:text-zinc-300'
+              mode === 'file' ? 'bg-white dark:bg-[#191F1C] text-[#17211D] dark:text-[#EDF2EE] font-semibold shadow-xs' : 'text-[#58645F] dark:text-[#A7B2AB] hover:text-[#17211D] dark:hover:text-[#EDF2EE]'
             }`}
           >
             File Upload
@@ -113,7 +113,7 @@ export const SourceUploader: React.FC<SourceUploaderProps> = ({
             type="button"
             onClick={() => setMode('text')}
             className={`px-2.5 py-1 rounded transition text-xs ${
-              mode === 'text' ? 'bg-zinc-800 text-zinc-100 font-semibold' : 'text-zinc-500 hover:text-zinc-300'
+              mode === 'text' ? 'bg-white dark:bg-[#191F1C] text-[#17211D] dark:text-[#EDF2EE] font-semibold shadow-xs' : 'text-[#58645F] dark:text-[#A7B2AB] hover:text-[#17211D] dark:hover:text-[#EDF2EE]'
             }`}
           >
             Paste Text
@@ -122,7 +122,7 @@ export const SourceUploader: React.FC<SourceUploaderProps> = ({
       </div>
 
       {uploadError && (
-        <div className="p-2.5 bg-rose-950/40 border border-rose-800 rounded text-rose-300 text-xs flex items-center gap-2">
+        <div className="p-2.5 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded text-rose-700 dark:text-rose-300 text-xs flex items-center gap-2">
           <AlertCircle className="w-4 h-4 shrink-0" />
           <span>{uploadError}</span>
         </div>
@@ -138,8 +138,8 @@ export const SourceUploader: React.FC<SourceUploaderProps> = ({
           onClick={() => fileInputRef.current?.click()}
           className={`border border-dashed rounded p-5 text-center cursor-pointer transition flex flex-col items-center justify-center gap-2 ${
             dragActive
-              ? 'border-zinc-400 bg-zinc-800/40'
-              : 'border-zinc-700/80 hover:border-zinc-500 bg-[#101216]'
+              ? 'border-[#176B58] dark:border-[#65B89D] bg-[#EBF5F1] dark:bg-[#19332A]'
+              : 'border-[#DCE3DF] dark:border-[#343E38] hover:border-[#176B58] dark:hover:border-[#65B89D] bg-[#F6F7F8] dark:bg-[#111614]'
           }`}
         >
           <input
@@ -150,14 +150,14 @@ export const SourceUploader: React.FC<SourceUploaderProps> = ({
             onChange={handleFileChange}
             disabled={isLoading}
           />
-          <div className="w-8 h-8 rounded bg-zinc-800 flex items-center justify-center text-zinc-300">
+          <div className="w-8 h-8 rounded bg-white dark:bg-[#202824] border border-[#DCE3DF] dark:border-[#343E38] flex items-center justify-center text-[#58645F] dark:text-[#A7B2AB]">
             <Upload className="w-4 h-4" />
           </div>
           <div>
-            <p className="text-xs font-medium text-zinc-300">
-              Drag &amp; drop reference documents, or <span className="text-zinc-100 underline">browse files</span>
+            <p className="text-xs font-medium text-[#17211D] dark:text-[#EDF2EE]">
+              Drag &amp; drop reference documents, or <span className="text-[#176B58] dark:text-[#65B89D] underline">browse files</span>
             </p>
-            <p className="text-[10px] text-zinc-500 mt-0.5 font-mono">
+            <p className="text-[10px] text-[#58645F] dark:text-[#A7B2AB] mt-0.5 font-mono">
               Accepts PDF, Word (.docx), Plain Text (.txt), and Markdown (.md)
             </p>
           </div>
@@ -170,20 +170,20 @@ export const SourceUploader: React.FC<SourceUploaderProps> = ({
             placeholder="Document label (e.g. Clinical Trial Findings.txt)"
             value={textTitle}
             onChange={(e) => setTextTitle(e.target.value)}
-            className="w-full bg-[#101216] border border-zinc-800 rounded px-3 py-1.5 text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-zinc-600 font-mono"
+            className="w-full bg-[#F6F7F8] dark:bg-[#111614] border border-[#DCE3DF] dark:border-[#343E38] rounded px-3 py-1.5 text-xs text-[#17211D] dark:text-[#EDF2EE] placeholder-[#7E8C86] dark:placeholder-[#738078] focus:outline-none focus:border-[#176B58] dark:focus:border-[#65B89D] font-mono"
           />
           <textarea
             rows={4}
             placeholder="Paste reference text or excerpt here..."
             value={textContent}
             onChange={(e) => setTextContent(e.target.value)}
-            className="w-full bg-[#101216] border border-zinc-800 rounded p-3 text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-zinc-600 font-serif leading-relaxed"
+            className="w-full bg-[#F6F7F8] dark:bg-[#111614] border border-[#DCE3DF] dark:border-[#343E38] rounded p-3 text-xs text-[#17211D] dark:text-[#EDF2EE] placeholder-[#7E8C86] dark:placeholder-[#738078] focus:outline-none focus:border-[#176B58] dark:focus:border-[#65B89D] font-sans leading-relaxed"
             required
           />
           <button
             type="submit"
             disabled={isLoading || !textContent.trim()}
-            className="self-end px-3 py-1.5 rounded bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 text-zinc-200 text-xs font-medium flex items-center gap-1.5 transition border border-zinc-700"
+            className="self-end px-3 py-1.5 rounded bg-[#176B58] hover:bg-[#125546] dark:bg-[#65B89D] dark:hover:bg-[#7AC5AC] disabled:opacity-50 text-white dark:text-[#0E1A15] text-xs font-medium flex items-center gap-1.5 transition"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>Add Source Document</span>
@@ -194,26 +194,26 @@ export const SourceUploader: React.FC<SourceUploaderProps> = ({
       {/* Uploaded Sources List */}
       {sources.length > 0 && (
         <div className="mt-1 space-y-1.5">
-          <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500">
+          <span className="text-[10px] font-mono uppercase tracking-wider text-[#58645F] dark:text-[#A7B2AB]">
             Attached Sources ({sources.length})
           </span>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {sources.map((src) => (
               <div
                 key={src.source_id}
-                className="p-2 rounded bg-[#101216] border border-zinc-800 flex items-start gap-2"
+                className="p-2 rounded bg-[#F6F7F8] dark:bg-[#202824] border border-[#DCE3DF] dark:border-[#343E38] flex items-start gap-2"
               >
-                <div className="p-1 rounded bg-zinc-800 text-zinc-400 shrink-0">
+                <div className="p-1 rounded bg-white dark:bg-[#191F1C] text-[#176B58] dark:text-[#65B89D] shrink-0 border border-[#DCE3DF] dark:border-[#343E38]">
                   <FileCode className="w-3.5 h-3.5" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-1">
-                    <p className="text-xs font-medium text-zinc-200 truncate">{src.filename}</p>
-                    <span className="text-[9px] font-mono px-1 py-0.2 rounded bg-zinc-800 text-zinc-400 uppercase border border-zinc-700">
+                    <p className="text-xs font-medium text-[#17211D] dark:text-[#EDF2EE] truncate">{src.filename}</p>
+                    <span className="text-[9px] font-mono px-1 py-0.5 rounded bg-[#EBF5F1] dark:bg-[#19332A] text-[#176B58] dark:text-[#65B89D] uppercase border border-[#BCD8CD] dark:border-[#2C5E4E]">
                       {src.file_type}
                     </span>
                   </div>
-                  <p className="text-[10px] text-zinc-500 mt-0.5 font-mono">
+                  <p className="text-[10px] text-[#58645F] dark:text-[#A7B2AB] mt-0.5 font-mono">
                     {src.char_count.toLocaleString()} chars
                   </p>
                 </div>

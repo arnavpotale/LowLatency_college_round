@@ -130,10 +130,14 @@ export const apiClient = {
     return await res.json();
   },
 
-  async getReport(auditId: string): Promise<string> {
-    const res = await fetch(`${BASE_URL}/audits/${auditId}/report`);
+  async getReport(auditId: string, type: 'detailed' | 'executive' = 'detailed'): Promise<string> {
+    const res = await fetch(`${BASE_URL}/audits/${auditId}/report?format=markdown&type=${type}`);
     if (!res.ok) throw await parseErrorResponse(res, "Failed to fetch report");
     return await res.text();
+  },
+
+  getReportDownloadUrl(auditId: string, format: 'markdown' | 'txt' | 'docx' | 'pdf', type: 'detailed' | 'executive' = 'detailed'): string {
+    return `${BASE_URL}/audits/${auditId}/report?format=${format}&type=${type}`;
   },
 
   async submitHumanReview(

@@ -18,38 +18,38 @@ export const VerdictBadge: React.FC<VerdictBadgeProps> = ({
   const configs: Record<VerdictCategory, { label: string; bg: string; text: string; border: string; icon: React.ReactNode }> = {
     supported: {
       label: 'Supported',
-      bg: 'bg-emerald-950/50',
-      text: 'text-emerald-300',
-      border: 'border-emerald-800/70',
-      icon: <CheckCircle2 className={size === 'sm' ? 'w-3 h-3' : 'w-3.5 h-3.5'} />
+      bg: 'bg-[#E8F5EE] dark:bg-[#176B58]/25',
+      text: 'text-[#0E6245] dark:text-[#65B89D]',
+      border: 'border-[#B7E1CA] dark:border-[#2C5E4E]',
+      icon: <CheckCircle2 className={size === 'sm' ? 'w-3 h-3 text-[#0E6245] dark:text-[#65B89D]' : 'w-3.5 h-3.5 text-[#0E6245] dark:text-[#65B89D]'} />
     },
     contradicted: {
       label: 'Contradicted',
-      bg: 'bg-rose-950/50',
-      text: 'text-rose-300',
-      border: 'border-rose-800/70',
-      icon: <XCircle className={size === 'sm' ? 'w-3 h-3' : 'w-3.5 h-3.5'} />
+      bg: 'bg-[#FDF0F0] dark:bg-[#B91C1C]/25',
+      text: 'text-[#9E2222] dark:text-[#F17575]',
+      border: 'border-[#F7C5C5] dark:border-[#6B2323]',
+      icon: <XCircle className={size === 'sm' ? 'w-3 h-3 text-[#9E2222] dark:text-[#F17575]' : 'w-3.5 h-3.5 text-[#9E2222] dark:text-[#F17575]'} />
     },
     unsupported: {
       label: 'Unsupported',
-      bg: 'bg-amber-950/40',
-      text: 'text-amber-300',
-      border: 'border-amber-800/70',
-      icon: <MinusCircle className={size === 'sm' ? 'w-3 h-3' : 'w-3.5 h-3.5'} />
+      bg: 'bg-[#FEF6E9] dark:bg-[#B45309]/25',
+      text: 'text-[#965B0A] dark:text-[#E5AC48]',
+      border: 'border-[#F8DCAB] dark:border-[#633910]',
+      icon: <MinusCircle className={size === 'sm' ? 'w-3 h-3 text-[#965B0A] dark:text-[#E5AC48]' : 'w-3.5 h-3.5 text-[#965B0A] dark:text-[#E5AC48]'} />
     },
     ambiguous: {
       label: 'Conflict / Ambiguous',
-      bg: 'bg-purple-950/40',
-      text: 'text-purple-300',
-      border: 'border-purple-800/70',
-      icon: <GitFork className={size === 'sm' ? 'w-3 h-3' : 'w-3.5 h-3.5'} />
+      bg: 'bg-[#F4F0FC] dark:bg-[#6D28D9]/25',
+      text: 'text-[#5B32A8] dark:text-[#B48DEF]',
+      border: 'border-[#D5C6F5] dark:border-[#4E2582]',
+      icon: <GitFork className={size === 'sm' ? 'w-3 h-3 text-[#5B32A8] dark:text-[#B48DEF]' : 'w-3.5 h-3.5 text-[#5B32A8] dark:text-[#B48DEF]'} />
     },
     inconclusive: {
       label: 'Inconclusive',
-      bg: 'bg-zinc-900',
-      text: 'text-zinc-400',
-      border: 'border-zinc-700',
-      icon: <AlertTriangle className={size === 'sm' ? 'w-3 h-3' : 'w-3.5 h-3.5'} />
+      bg: 'bg-[#EFF3F1] dark:bg-[#202824]',
+      text: 'text-[#58645F] dark:text-[#A7B2AB]',
+      border: 'border-[#DCE3DF] dark:border-[#343E38]',
+      icon: <AlertTriangle className={size === 'sm' ? 'w-3 h-3 text-[#58645F] dark:text-[#A7B2AB]' : 'w-3.5 h-3.5 text-[#58645F] dark:text-[#A7B2AB]'} />
     }
   };
 

@@ -127,7 +127,8 @@ export interface AuditSummary {
   unsupported_claims: number;
   ambiguous_claims: number;
   inconclusive_claims: number;
-  trust_score: number; // 0.0 - 100.0
+  decisive_claims?: number;
+  trust_score: number | null; // 0.0 - 100.0 or null if no decisive claims
   risk_level: 'low' | 'medium' | 'high';
   key_takeaway: string;
 }

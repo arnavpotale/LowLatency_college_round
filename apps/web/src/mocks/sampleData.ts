@@ -226,7 +226,8 @@ export const MOCK_INITIAL_AUDIT: AuditResponse = {
     unsupported_claims: 2,
     ambiguous_claims: 0,
     inconclusive_claims: 0,
-    trust_score: 12.5,
+    decisive_claims: 5,
+    trust_score: 0.0,
     risk_level: "high",
     key_takeaway: "[SIMULATED AUDIT] CRITICAL RISK DETECTED. 3 direct contradictions found including dangerous drug dosage inflation and concealed contraindications."
   }

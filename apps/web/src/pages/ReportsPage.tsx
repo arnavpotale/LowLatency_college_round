@@ -6,7 +6,9 @@ import {
   Download,
   Copy,
   Check,
-  FileText
+  FileText,
+  FileCode,
+  FileType
 } from 'lucide-react';
 
 interface ReportsPageProps {
@@ -16,6 +18,7 @@ interface ReportsPageProps {
 export const ReportsPage: React.FC<ReportsPageProps> = ({ activeAudit }) => {
   const [completedAudits, setCompletedAudits] = useState<AuditResponse[]>([]);
   const [selectedAuditId, setSelectedAuditId] = useState<string | null>(null);
+  const [reportType, setReportType] = useState<'detailed' | 'executive'>('detailed');
   const [reportMarkdown, setReportMarkdown] = useState<string>('');
   const [isLoadingReport, setIsLoadingReport] = useState<boolean>(false);
   const [isCopied, setIsCopied] = useState<boolean>(false);
@@ -54,14 +57,14 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ activeAudit }) => {
     };
   }, [activeAudit]);
 
-  // Load report when selectedAuditId changes
+  // Load report when selectedAuditId or reportType changes
   useEffect(() => {
     if (!selectedAuditId) return;
     let mounted = true;
     async function fetchReport() {
       setIsLoadingReport(true);
       try {
-        const md = await apiClient.getReport(selectedAuditId!);
+        const md = await apiClient.getReport(selectedAuditId!, reportType);
         if (mounted) setReportMarkdown(md);
       } catch (err) {
         console.error('Failed to fetch report markdown:', err);
@@ -74,7 +77,7 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ activeAudit }) => {
     return () => {
       mounted = false;
     };
-  }, [selectedAuditId]);
+  }, [selectedAuditId, reportType]);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(reportMarkdown);
@@ -82,14 +85,10 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ activeAudit }) => {
     setTimeout(() => setIsCopied(false), 2000);
   };
 
-  const handleDownload = () => {
-    const blob = new Blob([reportMarkdown], { type: 'text/markdown;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `second_opinion_audit_report_${selectedAuditId?.slice(0, 8)}.md`;
-    a.click();
-    URL.revokeObjectURL(url);
+  const handleDownload = (format: 'markdown' | 'txt' | 'docx' | 'pdf') => {
+    if (!selectedAuditId) return;
+    const downloadUrl = apiClient.getReportDownloadUrl(selectedAuditId, format, reportType);
+    window.open(downloadUrl, '_blank');
   };
 
   const selectedAudit = completedAudits.find((a) => a.audit_id === selectedAuditId);
@@ -97,41 +96,45 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ activeAudit }) => {
   return (
     <div className="max-w-6xl mx-auto px-6 py-8 space-y-8">
       {/* Header */}
-      <div className="rounded-xl border border-zinc-800/80 bg-gradient-to-b from-[#141720] to-[#101218] p-7 shadow-sm">
+      <div className="rounded-xl border border-[#DCE3DF] dark:border-[#343E38] bg-white dark:bg-[#191F1C] p-7 shadow-xs">
         <div className="space-y-2">
           <div className="flex items-center gap-2">
-            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-950/80 border border-emerald-800/80 text-emerald-300 uppercase tracking-wider font-semibold">
+            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#EBF5F1] dark:bg-[#19332A] border border-[#BCD8CD] dark:border-[#2C5E4E] text-[#176B58] dark:text-[#65B89D] uppercase tracking-wider font-semibold">
               Regulatory Audit Artifacts
             </span>
-            <span className="text-xs text-zinc-400 font-mono">
+            <span className="text-xs text-[#58645F] dark:text-[#A7B2AB] font-mono">
               {completedAudits.length} completed reports ready
             </span>
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-zinc-100 flex items-center gap-2.5">
-            <FileCheck className="w-6 h-6 text-emerald-400" />
-            <span>Auditable Verification Reports</span>
+          <h1 className="text-2xl font-bold tracking-tight text-[#17211D] dark:text-[#EDF2EE] flex items-center gap-2.5">
+            <FileCheck className="w-6 h-6 text-[#176B58] dark:text-[#65B89D]" />
+            <span>Audit Reports &amp; Dossiers</span>
           </h1>
-          <p className="text-xs text-zinc-400 leading-relaxed max-w-2xl">
-            Export standardized Markdown audit reports containing full claim decomposition,
-            authoritative source locations, NLI evaluation trails, and human compliance sign-offs.
+          <p className="text-xs text-[#58645F] dark:text-[#A7B2AB] max-w-2xl leading-relaxed">
+            Export legally auditable verification dossiers and concise executive summaries with complete evidence provenance,
+            claim-level verdicts, forensic autopsies, and compliance certifications in Markdown, Plain Text, Word DOCX, and PDF formats.
           </p>
         </div>
       </div>
 
-      {/* Main Two-Column View */}
+      {/* Main Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Reports Index (4 cols) */}
-        <div className="lg:col-span-4 rounded-xl border border-zinc-800/80 bg-[#12141a] p-4 space-y-3">
-          <div className="text-xs font-semibold text-zinc-300 pb-2 border-b border-zinc-800 flex items-center justify-between">
-            <span>Completed Audits ({completedAudits.length})</span>
-            <span className="text-[10px] font-mono text-zinc-400">Select report</span>
+        {/* Audit Sessions List (4 cols) */}
+        <div className="lg:col-span-4 rounded-xl border border-[#DCE3DF] dark:border-[#343E38] bg-white dark:bg-[#191F1C] p-5 space-y-3">
+          <div className="flex items-center justify-between pb-2 border-b border-[#DCE3DF] dark:border-[#343E38]">
+            <div className="text-xs font-semibold text-[#17211D] dark:text-[#EDF2EE] uppercase tracking-wider font-mono">
+              Completed Audits
+            </div>
+            <span className="text-[10px] text-[#58645F] dark:text-[#A7B2AB] font-mono">
+              {completedAudits.length} total
+            </span>
           </div>
 
           {isLoadingAudits ? (
-            <div className="py-8 text-center text-xs text-zinc-400 font-mono">Loading reports...</div>
+            <div className="py-8 text-center text-xs text-[#58645F] dark:text-[#A7B2AB] font-mono">Loading reports...</div>
           ) : completedAudits.length === 0 ? (
-            <div className="py-8 text-center text-xs text-zinc-400 space-y-2">
-              <FileText className="w-8 h-8 mx-auto text-zinc-400" />
+            <div className="py-8 text-center text-xs text-[#58645F] dark:text-[#A7B2AB] space-y-2">
+              <FileText className="w-8 h-8 mx-auto text-[#7E8C86] dark:text-[#738078]" />
               <div>No completed audits found.</div>
             </div>
           ) : (
@@ -152,14 +155,14 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ activeAudit }) => {
                     onClick={() => setSelectedAuditId(a.audit_id)}
                     className={`p-3 rounded-lg border cursor-pointer transition text-xs space-y-1 ${
                       isSelected
-                        ? 'bg-emerald-950/30 border-emerald-800/80'
-                        : 'bg-zinc-900/60 border-zinc-800/80 hover:bg-zinc-800/40'
+                        ? 'bg-[#EBF5F1] dark:bg-[#19332A] border-[#BCD8CD] dark:border-[#2C5E4E] shadow-xs'
+                        : 'bg-[#F6F7F8] dark:bg-[#202824] border-[#DCE3DF] dark:border-[#343E38] hover:bg-[#EAEFEA] dark:hover:bg-[#26302B]'
                     }`}
                   >
-                    <div className="font-semibold text-zinc-200 truncate">
+                    <div className="font-semibold text-[#17211D] dark:text-[#EDF2EE] truncate">
                       {a.title || 'Untitled Audit'}
                     </div>
-                    <div className="flex items-center justify-between text-[11px] text-zinc-400 font-mono">
+                    <div className="flex items-center justify-between text-[11px] text-[#58645F] dark:text-[#A7B2AB] font-mono">
                       <span>{claimCount} claims</span>
                       <span>{dateStr}</span>
                     </div>
@@ -171,59 +174,121 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ activeAudit }) => {
         </div>
 
         {/* Report Content Preview (8 cols) */}
-        <div className="lg:col-span-8 rounded-xl border border-zinc-800/80 bg-[#12141a] p-6 space-y-4">
+        <div className="lg:col-span-8 rounded-xl border border-[#DCE3DF] dark:border-[#343E38] bg-white dark:bg-[#191F1C] p-6 space-y-5">
           {selectedAudit ? (
             <>
-              {/* Report Controls */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-zinc-800/80">
+              {/* Report Controls & Format Selector */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#DCE3DF] dark:border-[#343E38]">
                 <div>
-                  <h3 className="text-sm font-bold text-zinc-100">{selectedAudit.title}</h3>
-                  <div className="text-[11px] font-mono text-zinc-400">
+                  <h3 className="text-sm font-bold text-[#17211D] dark:text-[#EDF2EE]">{selectedAudit.title}</h3>
+                  <div className="text-[11px] font-mono text-[#58645F] dark:text-[#A7B2AB]">
                     ID: {selectedAudit.audit_id}
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
+                {/* Scope Switcher: Detailed vs Executive */}
+                <div className="inline-flex rounded-lg bg-[#F6F7F8] dark:bg-[#202824] p-0.5 border border-[#DCE3DF] dark:border-[#343E38] text-xs">
                   <button
-                    onClick={handleCopy}
-                    disabled={isLoadingReport}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-800 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 text-xs font-medium transition"
+                    onClick={() => setReportType('detailed')}
+                    className={`px-3 py-1.5 rounded-md transition font-medium ${
+                      reportType === 'detailed'
+                        ? 'bg-white dark:bg-[#191F1C] text-[#17211D] dark:text-[#EDF2EE] shadow-xs'
+                        : 'text-[#58645F] dark:text-[#A7B2AB] hover:text-[#17211D] dark:hover:text-[#EDF2EE]'
+                    }`}
                   >
-                    {isCopied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                    <span>{isCopied ? 'Copied' : 'Copy Markdown'}</span>
+                    Forensic Dossier
                   </button>
                   <button
-                    onClick={handleDownload}
-                    disabled={isLoadingReport}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-zinc-950 text-xs font-medium transition shadow-sm"
+                    onClick={() => setReportType('executive')}
+                    className={`px-3 py-1.5 rounded-md transition font-medium ${
+                      reportType === 'executive'
+                        ? 'bg-white dark:bg-[#191F1C] text-[#17211D] dark:text-[#EDF2EE] shadow-xs'
+                        : 'text-[#58645F] dark:text-[#A7B2AB] hover:text-[#17211D] dark:hover:text-[#EDF2EE]'
+                    }`}
                   >
-                    <Download className="w-3.5 h-3.5" />
-                    <span>Download .md</span>
+                    Executive Summary
                   </button>
                 </div>
               </div>
 
-              {/* Monospace Markdown Preview */}
+              {/* Action Toolbar: Multi-format Downloads */}
+              <div className="flex flex-wrap items-center justify-between gap-2.5 bg-[#F6F7F8] dark:bg-[#202824] p-3 rounded-lg border border-[#DCE3DF] dark:border-[#343E38]">
+                <div className="flex items-center gap-1.5 text-xs text-[#58645F] dark:text-[#A7B2AB] font-mono">
+                  <span>Download Format:</span>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    onClick={handleCopy}
+                    disabled={isLoadingReport}
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-[#DCE3DF] dark:border-[#343E38] bg-white dark:bg-[#191F1C] text-[#17211D] dark:text-[#EDF2EE] hover:bg-[#EAEFEA] dark:hover:bg-[#26302B] text-xs font-medium transition shadow-xs"
+                    title="Copy report markdown to clipboard"
+                  >
+                    {isCopied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{isCopied ? 'Copied' : 'Copy'}</span>
+                  </button>
+
+                  <button
+                    onClick={() => handleDownload('markdown')}
+                    disabled={isLoadingReport}
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-md border border-[#DCE3DF] dark:border-[#343E38] bg-white dark:bg-[#191F1C] text-[#17211D] dark:text-[#EDF2EE] hover:bg-[#EAEFEA] dark:hover:bg-[#26302B] text-xs font-medium transition shadow-xs"
+                  >
+                    <FileCode className="w-3.5 h-3.5 text-[#176B58] dark:text-[#65B89D]" />
+                    <span>.MD</span>
+                  </button>
+
+                  <button
+                    onClick={() => handleDownload('txt')}
+                    disabled={isLoadingReport}
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-md border border-[#DCE3DF] dark:border-[#343E38] bg-white dark:bg-[#191F1C] text-[#17211D] dark:text-[#EDF2EE] hover:bg-[#EAEFEA] dark:hover:bg-[#26302B] text-xs font-medium transition shadow-xs"
+                  >
+                    <FileText className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                    <span>.TXT</span>
+                  </button>
+
+                  <button
+                    onClick={() => handleDownload('docx')}
+                    disabled={isLoadingReport}
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-md border border-[#DCE3DF] dark:border-[#343E38] bg-white dark:bg-[#191F1C] text-[#17211D] dark:text-[#EDF2EE] hover:bg-[#EAEFEA] dark:hover:bg-[#26302B] text-xs font-medium transition shadow-xs"
+                  >
+                    <FileType className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                    <span>.DOCX</span>
+                  </button>
+
+                  <button
+                    onClick={() => handleDownload('pdf')}
+                    disabled={isLoadingReport}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-[#176B58] hover:bg-[#125546] dark:bg-[#65B89D] dark:hover:bg-[#7AC5AC] text-white dark:text-[#0E1A15] text-xs font-semibold shadow-xs transition"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Download PDF</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Monospace Document Preview */}
               <div className="space-y-2">
-                <div className="text-[11px] font-mono uppercase tracking-wider text-zinc-400 flex items-center justify-between">
-                  <span>GENERATED MARKDOWN REPORT (LIVE BACKEND)</span>
-                  <span className="font-mono text-zinc-400">{reportMarkdown.length} chars</span>
+                <div className="text-[11px] font-mono uppercase tracking-wider text-[#58645F] dark:text-[#A7B2AB] flex items-center justify-between">
+                  <span>
+                    {reportType === 'executive' ? 'CONCISE EXECUTIVE SUMMARY' : 'FORENSIC AUDIT DOSSIER'} (LIVE GENERATION)
+                  </span>
+                  <span className="font-mono text-[#58645F] dark:text-[#A7B2AB]">{reportMarkdown.length} chars</span>
                 </div>
 
                 {isLoadingReport ? (
-                  <div className="py-20 text-center text-xs text-zinc-400 font-mono">
+                  <div className="py-20 text-center text-xs text-[#58645F] dark:text-[#A7B2AB] font-mono">
                     Generating report from backend...
                   </div>
                 ) : (
-                  <pre className="p-4 rounded-lg bg-[#0d0f14] border border-zinc-800 text-xs font-mono text-zinc-300 whitespace-pre-wrap leading-relaxed max-h-[520px] overflow-y-auto selection:bg-emerald-900">
+                  <pre className="p-4 rounded-lg bg-[#F6F7F8] dark:bg-[#111614] border border-[#DCE3DF] dark:border-[#343E38] text-xs font-mono text-[#17211D] dark:text-[#EDF2EE] whitespace-pre-wrap leading-relaxed max-h-[500px] overflow-y-auto selection:bg-[#EBF5F1] dark:selection:bg-[#19332A]">
                     {reportMarkdown}
                   </pre>
                 )}
               </div>
             </>
           ) : (
-            <div className="py-20 text-center text-xs text-zinc-400">
-              Select an audit to preview and export its Markdown report.
+            <div className="py-20 text-center text-xs text-[#58645F] dark:text-[#A7B2AB]">
+              Select an audit to preview and export its report.
             </div>
           )}
         </div>

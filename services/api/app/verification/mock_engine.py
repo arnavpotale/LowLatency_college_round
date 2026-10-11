@@ -9,6 +9,7 @@ from app.schemas import (
     AuditSummary,
     Source as SourceSchema,
 )
+from app.verification.scoring import compute_trust_score, compute_risk_level
 
 
 def generate_mock_audit_findings(
@@ -180,23 +181,20 @@ def generate_mock_audit_findings(
     sup = verdict_counts[VerdictCategory.SUPPORTED.value]
     cont = verdict_counts[VerdictCategory.CONTRADICTED.value]
     unsup = verdict_counts[VerdictCategory.UNSUPPORTED.value]
+    amb = verdict_counts[VerdictCategory.AMBIGUOUS.value]
+    inc = verdict_counts[VerdictCategory.INCONCLUSIVE.value]
 
-    # Simple trust score formula: penalized heavily by contradictions, moderately by unsupported
-    trust_score = max(0.0, min(100.0, round(((sup * 1.0 - cont * 1.5 - unsup * 0.5) / max(1, total)) * 100, 1)))
-
-    risk_level = "low"
-    if cont > 0 or trust_score < 50:
-        risk_level = "high"
-    elif unsup > 0 or trust_score < 75:
-        risk_level = "medium"
+    trust_score, decisive_claims = compute_trust_score(sup, cont, unsup)
+    risk_level = compute_risk_level(cont, unsup, trust_score)
 
     summary = AuditSummary(
         total_claims=total,
         supported_claims=sup,
         contradicted_claims=cont,
         unsupported_claims=unsup,
-        ambiguous_claims=verdict_counts[VerdictCategory.AMBIGUOUS.value],
-        inconclusive_claims=verdict_counts[VerdictCategory.INCONCLUSIVE.value],
+        ambiguous_claims=amb,
+        inconclusive_claims=inc,
+        decisive_claims=decisive_claims,
         trust_score=trust_score,
         risk_level=risk_level,
         key_takeaway=(

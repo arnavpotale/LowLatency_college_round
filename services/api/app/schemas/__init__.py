@@ -134,7 +134,8 @@ class AuditSummary(BaseModel):
     unsupported_claims: int = 0
     ambiguous_claims: int = 0
     inconclusive_claims: int = 0
-    trust_score: float = Field(0.0, ge=0.0, le=100.0, description="Composite trust score (0-100)")
+    decisive_claims: int = 0
+    trust_score: Optional[float] = Field(None, ge=0.0, le=100.0, description="Normalized trust score (0-100) or None if no decisive claims")
     risk_level: str = Field("low", description="Overall risk rating: low, medium, or high")
     key_takeaway: str = Field("", description="High-level summary of verification findings")
 
