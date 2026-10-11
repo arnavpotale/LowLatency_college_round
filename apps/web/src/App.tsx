@@ -10,12 +10,13 @@ import { ReportPreviewModal } from './features/reports/ReportPreviewModal';
 import { apiClient } from './services/api';
 import { AuditResponse, HealthResponse } from './types';
 import { MOCK_INITIAL_AUDIT } from './mocks/sampleData';
-import { Layers, CheckCircle2, FileCheck, ShieldAlert } from 'lucide-react';
+import { Layers, CheckCircle2, FileCheck, ShieldAlert, AlertTriangle, Loader2 } from 'lucide-react';
 
 export const App: React.FC = () => {
   const [audit, setAudit] = useState<AuditResponse>(MOCK_INITIAL_AUDIT);
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [selectedClaimId, setSelectedClaimId] = useState<string | null>(null);
   const [activeEvidenceId, setActiveEvidenceId] = useState<string | null>(null);
   const [rightTab, setRightTab] = useState<'claims' | 'evidence'>('claims');
@@ -25,8 +26,12 @@ export const App: React.FC = () => {
   // Initial check on mount
   useEffect(() => {
     async function init() {
-      const h = await apiClient.getHealth();
-      setHealth(h);
+      try {
+        const h = await apiClient.getHealth();
+        setHealth(h);
+      } catch (err) {
+        console.warn('API health check unreachable:', err);
+      }
     }
     init();
   }, []);
@@ -45,6 +50,7 @@ export const App: React.FC = () => {
 
   // Handle Demo Case Load
   const handleLoadDemo = async () => {
+    setErrorMessage(null);
     setAudit(MOCK_INITIAL_AUDIT);
     setSelectedClaimId(MOCK_INITIAL_AUDIT.claims[0]?.claim_id || null);
     setActiveEvidenceId(MOCK_INITIAL_AUDIT.claims[0]?.evidence_ids[0] || null);
@@ -54,12 +60,15 @@ export const App: React.FC = () => {
   // Upload file handler
   const handleUploadFile = async (file: File) => {
     setIsLoading(true);
+    setErrorMessage(null);
     try {
       const source = await apiClient.uploadSourceFile(audit.audit_id, file);
       setAudit((prev) => ({
         ...prev,
-        sources: [...prev.sources, source]
+        sources: [...prev.sources, source],
       }));
+    } catch (err: any) {
+      setErrorMessage(err?.message || 'Failed to upload source file.');
     } finally {
       setIsLoading(false);
     }
@@ -68,29 +77,33 @@ export const App: React.FC = () => {
   // Add text source handler
   const handleAddTextSource = async (title: string, content: string) => {
     setIsLoading(true);
+    setErrorMessage(null);
     try {
       const source = await apiClient.uploadSourceText(audit.audit_id, title, content);
       setAudit((prev) => ({
         ...prev,
-        sources: [...prev.sources, source]
+        sources: [...prev.sources, source],
       }));
+    } catch (err: any) {
+      setErrorMessage(err?.message || 'Failed to add source text.');
     } finally {
       setIsLoading(false);
     }
   };
 
-    // Run Audit
-     const handleRunAudit = async (title: string, answerText: string) => {
+  // Run Audit
+  const handleRunAudit = async (title: string, answerText: string) => {
     setIsLoading(true);
+    setErrorMessage(null);
     try {
-      // 1. Create a new audit in the backend
+      // 1. Create a new audit
       const newAudit = await apiClient.createAudit(title);
       setAudit(newAudit);
 
-      // 2. Submit the answer using the new audit ID
+      // 2. Submit the answer
       await apiClient.submitAnswer(newAudit.audit_id, answerText);
 
-      // 3. Run the analysis
+      // 3. Run analysis
       const updatedAudit = await apiClient.runAnalysis(newAudit.audit_id);
 
       // 4. Update the results
@@ -98,8 +111,9 @@ export const App: React.FC = () => {
       setSelectedClaimId(updatedAudit.claims[0]?.claim_id ?? null);
       setActiveEvidenceId(updatedAudit.claims[0]?.evidence_ids[0] ?? null);
       setRightTab('claims');
-    } catch (err) {
+    } catch (err: any) {
       console.error('Audit error:', err);
+      setErrorMessage(err?.message || 'Failed to execute audit analysis. Falling back to current view.');
     } finally {
       setIsLoading(false);
     }
@@ -107,9 +121,13 @@ export const App: React.FC = () => {
 
   // Open Report Modal
   const handleOpenReport = async () => {
-    const reportText = await apiClient.getReport(audit.audit_id);
-    setReportMarkdown(reportText);
-    setIsReportOpen(true);
+    try {
+      const reportText = await apiClient.getReport(audit.audit_id);
+      setReportMarkdown(reportText);
+      setIsReportOpen(true);
+    } catch (err: any) {
+      setErrorMessage('Could not load report markdown.');
+    }
   };
 
   // Claim click handler
@@ -129,7 +147,7 @@ export const App: React.FC = () => {
     setRightTab('evidence');
   };
 
-  // Bidirectional navigation: jump from Evidence item to Claim
+  // Jump to claim from evidence
   const handleJumpToClaim = (claimId: string) => {
     handleSelectClaim(claimId);
     setRightTab('claims');
@@ -146,7 +164,31 @@ export const App: React.FC = () => {
         hasCompletedAudit={hasResults}
       />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full flex flex-col gap-6">
+      {/* Global Error Banner */}
+      {errorMessage && (
+        <div className="bg-rose-500/10 border-b border-rose-500/20 px-4 py-2.5 text-rose-300 text-xs flex items-center justify-between">
+          <div className="flex items-center gap-2 max-w-7xl mx-auto w-full">
+            <AlertTriangle className="w-4 h-4 shrink-0 text-rose-400" />
+            <span className="font-medium">{errorMessage}</span>
+            <button
+              onClick={() => setErrorMessage(null)}
+              className="ml-auto underline hover:text-rose-200 text-xs"
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
+
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full flex flex-col gap-6 relative">
+        {/* Global Loading Spinner Banner */}
+        {isLoading && (
+          <div className="rounded-xl border border-indigo-500/30 bg-indigo-950/40 p-3 flex items-center justify-center gap-2 text-indigo-300 text-xs animate-pulse">
+            <Loader2 className="w-4 h-4 animate-spin text-indigo-400" />
+            <span>Processing and analyzing factual claims against sources...</span>
+          </div>
+        )}
+
         {/* Step 1 & 2 Inputs: Sources and AI Answer Form */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <SourceUploader
@@ -166,7 +208,7 @@ export const App: React.FC = () => {
         </div>
 
         {/* Audit Results View (Shown when audit is analyzed) */}
-        {hasResults && audit.summary && (
+        {hasResults && audit.summary ? (
           <div className="flex flex-col gap-6 pt-2">
             {/* Top Summary Card */}
             <AuditSummaryCard
@@ -180,15 +222,13 @@ export const App: React.FC = () => {
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
               {/* Left Column: Original Answer with Offset Highlighting */}
               <div className="lg:col-span-5 flex flex-col gap-4">
-                <div className="bg-slate-900/60 rounded-xl border border-slate-800 p-5 flex flex-col gap-3">
+                <div className="bg-slate-900/60 rounded-xl border border-slate-800 p-4 sm:p-5 flex flex-col gap-3">
                   <div className="flex items-center justify-between">
                     <h2 className="text-sm font-semibold text-white flex items-center gap-2">
                       <FileCheck className="w-4 h-4 text-indigo-400" />
                       Answer Offset Highlighter
                     </h2>
-                    <span className="text-[11px] text-slate-400">
-                      Click text spans to inspect
-                    </span>
+                    <span className="text-[11px] text-slate-400">Click text spans to inspect</span>
                   </div>
                   <p className="text-xs text-slate-400">
                     Exact character offsets <span className="font-mono text-slate-300">[start:end]</span> anchored to original LLM answer:
@@ -203,27 +243,39 @@ export const App: React.FC = () => {
 
                 {/* Safety & Consistency Findings Section */}
                 {(audit.safety_findings.length > 0 || audit.consistency_findings.length > 0) && (
-                  <div className="bg-slate-900/60 rounded-xl border border-slate-800 p-5 flex flex-col gap-3">
+                  <div className="bg-slate-900/60 rounded-xl border border-slate-800 p-4 sm:p-5 flex flex-col gap-3">
                     <h3 className="text-sm font-semibold text-white flex items-center gap-2">
                       <ShieldAlert className="w-4 h-4 text-rose-400" />
                       Risk & Consistency Audits
                     </h3>
                     <div className="space-y-2 text-xs">
                       {audit.safety_findings.map((sf) => (
-                        <div key={sf.finding_id} className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-300">
+                        <div
+                          key={sf.finding_id}
+                          className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-300"
+                        >
                           <div className="flex items-center justify-between font-semibold">
                             <span>{sf.category.replace('_', ' ').toUpperCase()}</span>
-                            <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-rose-500/20">{sf.severity}</span>
+                            <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-rose-500/20">
+                              {sf.severity}
+                            </span>
                           </div>
                           <p className="mt-1 text-slate-300">{sf.description}</p>
-                          <p className="mt-1.5 text-[11px] text-rose-400 italic font-mono">Advisory: {sf.recommendation}</p>
+                          <p className="mt-1.5 text-[11px] text-rose-400 italic font-mono">
+                            Advisory: {sf.recommendation}
+                          </p>
                         </div>
                       ))}
                       {audit.consistency_findings.map((cf) => (
-                        <div key={cf.finding_id} className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-300">
+                        <div
+                          key={cf.finding_id}
+                          className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-300"
+                        >
                           <div className="flex items-center justify-between font-semibold">
                             <span>{cf.finding_type.replace('_', ' ').toUpperCase()}</span>
-                            <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-amber-500/20">{cf.severity}</span>
+                            <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-amber-500/20">
+                              {cf.severity}
+                            </span>
                           </div>
                           <p className="mt-1 text-slate-300">{cf.description}</p>
                         </div>
@@ -234,8 +286,8 @@ export const App: React.FC = () => {
               </div>
 
               {/* Right Column: Claims & Evidence Tabs */}
-              <div className="lg:col-span-7 bg-slate-900/60 rounded-xl border border-slate-800 p-5 flex flex-col gap-4">
-                <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="lg:col-span-7 bg-slate-900/60 rounded-xl border border-slate-800 p-4 sm:p-5 flex flex-col gap-4">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => setRightTab('claims')}
@@ -290,7 +342,7 @@ export const App: React.FC = () => {
               </div>
             </div>
           </div>
-        )}
+        ) : null}
       </main>
 
       {/* Audit Report Modal */}
