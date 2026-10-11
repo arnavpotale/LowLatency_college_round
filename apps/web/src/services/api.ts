@@ -88,6 +88,24 @@ export const apiClient = {
     return await res.json();
   },
 
+  async deleteSource(auditId: string, sourceId: string): Promise<void> {
+    const res = await fetch(`${BASE_URL}/audits/${auditId}/sources/${sourceId}`, {
+      method: 'DELETE'
+    });
+    if (!res.ok && res.status !== 204) throw await parseErrorResponse(res, "Failed to delete source");
+  },
+
+  async listAudits(): Promise<AuditResponse[]> {
+    try {
+      const res = await fetch(`${BASE_URL}/audits`);
+      if (!res.ok) throw await parseErrorResponse(res, "Failed to list audits");
+      return await res.json();
+    } catch (err: any) {
+      console.warn("Could not list audits from backend:", err?.message || err);
+      return [];
+    }
+  },
+
   async submitAnswer(auditId: string, originalAnswer: string): Promise<AuditResponse> {
     const res = await fetch(`${BASE_URL}/audits/${auditId}/answer`, {
       method: 'POST',

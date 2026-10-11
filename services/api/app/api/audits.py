@@ -50,6 +50,13 @@ def create_audit(payload: Optional[AuditCreate] = None, db: Session = Depends(ge
     return audit.to_schema()
 
 
+@router.get("", response_model=List[AuditResponse])
+def list_audits(limit: int = 50, db: Session = Depends(get_db)):
+    """List recent audit sessions, ordered by creation date descending."""
+    audits = db.query(AuditModel).order_by(AuditModel.created_at.desc()).limit(limit).all()
+    return [a.to_schema() for a in audits]
+
+
 @router.post("/{audit_id}/sources", response_model=SourceSchema, status_code=status.HTTP_201_CREATED)
 async def upload_source(
     audit_id: str,
@@ -140,6 +147,22 @@ async def upload_source(
     db.commit()
     db.refresh(source)
     return source.to_schema()
+
+
+@router.delete("/{audit_id}/sources/{source_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_source(audit_id: str, source_id: str, db: Session = Depends(get_db)):
+    """Remove a source document from an in-progress audit."""
+    source = db.query(SourceModel).filter(SourceModel.id == source_id, SourceModel.audit_id == audit_id).first()
+    if not source:
+        raise HTTPException(status_code=404, detail="Source not found")
+    if source.file_path and os.path.exists(source.file_path):
+        try:
+            os.remove(source.file_path)
+        except OSError:
+            pass
+    db.delete(source)
+    db.commit()
+    return None
 
 
 @router.post("/{audit_id}/answer", response_model=AuditResponse)

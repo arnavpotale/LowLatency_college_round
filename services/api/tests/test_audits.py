@@ -720,4 +720,44 @@ def test_end_to_end_pdf_upload_multi_passage_audit(client, monkeypatch):
     assert nli_c3["verdict"] == "ambiguous"
 
 
+def test_list_audits_endpoint(client):
+    """Verify GET /api/audits returns all created audits in descending order."""
+    c1 = client.post("/api/audits", json={"title": "Audit Listing Test 1"})
+    assert c1.status_code == 201
+    c2 = client.post("/api/audits", json={"title": "Audit Listing Test 2"})
+    assert c2.status_code == 201
+
+    res = client.get("/api/audits")
+    assert res.status_code == 200
+    audits = res.json()
+    assert isinstance(audits, list)
+    assert len(audits) >= 2
+    titles = [a["title"] for a in audits]
+    assert "Audit Listing Test 2" in titles
+    assert "Audit Listing Test 1" in titles
+
+
+def test_delete_source_endpoint(client):
+    """Verify DELETE /api/audits/{audit_id}/sources/{source_id} removes a source."""
+    c = client.post("/api/audits", json={"title": "Delete Source Test"})
+    audit_id = c.json()["audit_id"]
+
+    src = client.post(
+        f"/api/audits/{audit_id}/sources",
+        data={"text_title": "removable.txt", "text_content": "Temporary content for removal."}
+    )
+    assert src.status_code == 201
+    source_id = src.json()["source_id"]
+
+    # Verify source is present
+    audit_res = client.get(f"/api/audits/{audit_id}")
+    assert len(audit_res.json()["sources"]) == 1
+
+    # Delete source
+    del_res = client.delete(f"/api/audits/{audit_id}/sources/{source_id}")
+    assert del_res.status_code == 204
+
+    # Verify source is removed
+    audit_res2 = client.get(f"/api/audits/{audit_id}")
+    assert len(audit_res2.json()["sources"]) == 0
 

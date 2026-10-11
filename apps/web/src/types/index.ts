@@ -136,6 +136,7 @@ export interface AuditResponse {
   audit_id: string;
   status: AuditStatus;
   title?: string;
+  notes?: string;
   original_answer: string;
   sources: Source[];
   claims: Claim[];
