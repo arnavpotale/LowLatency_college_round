@@ -67,11 +67,11 @@ export const ClaimAutopsyCard: React.FC<ClaimAutopsyCardProps> = ({ autopsy, cla
   };
 
   return (
-    <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 p-4 space-y-3.5">
+    <div className="rounded-lg border border-zinc-800/80 bg-[#12141a] p-4 space-y-3.5">
       {/* Autopsy Header */}
       <div className="flex items-center justify-between border-b border-zinc-800/80 pb-2.5">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
+          <span className="text-xs font-semibold uppercase tracking-wider text-zinc-300">
             Claim Autopsy
           </span>
         </div>
@@ -84,18 +84,18 @@ export const ClaimAutopsyCard: React.FC<ClaimAutopsyCardProps> = ({ autopsy, cla
       </div>
 
       {claimText && (
-        <div className="text-[11px] text-zinc-400 font-serif italic border-l border-zinc-700 pl-2">
+        <div className="text-[11px] text-zinc-300 font-sans italic border-l-2 border-zinc-600 pl-2.5">
           &ldquo;{claimText}&rdquo;
         </div>
       )}
 
       {/* Problematic Phrase Callout if present */}
       {autopsy.problematic_phrase && (
-        <div className="p-3 rounded bg-zinc-950 border border-zinc-800 space-y-1">
+        <div className="p-3 rounded bg-[#0a0c10] border border-zinc-800 space-y-1">
           <span className="text-[10px] font-mono uppercase tracking-wider text-rose-400 font-semibold block">
             Divergent Phrase in Answer:
           </span>
-          <p className="font-mono text-xs text-rose-200 font-semibold bg-rose-950/30 px-2 py-1 rounded border border-rose-900/40">
+          <p className="font-mono text-xs text-rose-200 font-semibold bg-rose-950/40 px-2 py-1 rounded border border-rose-900/50">
             &ldquo;{autopsy.problematic_phrase}&rdquo;
           </p>
         </div>
@@ -104,7 +104,7 @@ export const ClaimAutopsyCard: React.FC<ClaimAutopsyCardProps> = ({ autopsy, cla
       {/* Forensic Element Comparison */}
       {(autopsy.claim_elements.length > 0 || autopsy.evidence_elements.length > 0) && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
-          <div className="p-2.5 rounded bg-zinc-950/80 border border-zinc-800/80">
+          <div className="p-2.5 rounded bg-[#0f1117] border border-zinc-800/80">
             <span className="text-[10px] font-mono uppercase text-zinc-400 font-medium block mb-1">
               Asserted Tokens / Data
             </span>
@@ -124,7 +124,7 @@ export const ClaimAutopsyCard: React.FC<ClaimAutopsyCardProps> = ({ autopsy, cla
             </div>
           </div>
 
-          <div className="p-2.5 rounded bg-zinc-950/80 border border-zinc-800/80">
+          <div className="p-2.5 rounded bg-[#0f1117] border border-zinc-800/80">
             <span className="text-[10px] font-mono uppercase text-zinc-400 font-medium block mb-1">
               Contrasting Source Facts
             </span>
@@ -148,7 +148,7 @@ export const ClaimAutopsyCard: React.FC<ClaimAutopsyCardProps> = ({ autopsy, cla
 
       {/* Diagnostic Explanation */}
       <div className="text-xs text-zinc-300 leading-relaxed pt-0.5">
-        <span className="text-[10px] font-mono uppercase text-zinc-500 font-medium block mb-0.5">
+        <span className="text-[10px] font-mono uppercase text-zinc-400 font-medium block mb-0.5">
           Diagnosis:
         </span>
         <p className="text-zinc-200">{autopsy.diagnosis}</p>

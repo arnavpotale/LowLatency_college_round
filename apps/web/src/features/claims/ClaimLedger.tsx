@@ -43,19 +43,19 @@ export const ClaimLedger: React.FC<ClaimLedgerProps> = ({
   ];
 
   return (
-    <div className="flex flex-col h-full bg-[#15181e] border border-zinc-800 rounded-lg overflow-hidden">
+    <div className="flex flex-col h-full bg-[#12141a] border border-zinc-800/80 rounded-lg overflow-hidden">
       {/* Header & Filter Controls */}
-      <div className="p-3.5 border-b border-zinc-800 space-y-2.5 bg-[#171a22]">
+      <div className="p-3 border-b border-zinc-800/80 space-y-2.5 bg-[#14161f]">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold uppercase tracking-wider text-zinc-300">
+            <span className="text-xs font-semibold uppercase tracking-wider text-zinc-200">
               Claim Ledger
             </span>
-            <span className="font-mono text-[10px] px-1.5 py-0.2 rounded bg-zinc-800 text-zinc-400 border border-zinc-700">
+            <span className="font-mono text-[10px] px-1.5 py-0.2 rounded bg-zinc-900 text-zinc-400 border border-zinc-800">
               {claims.length} assertions
             </span>
           </div>
-          <span className="text-[10px] text-zinc-500 font-mono">Select to inspect dossier</span>
+          <span className="text-[10px] text-zinc-400 font-mono">Select to inspect</span>
         </div>
 
         {/* Search Input */}
@@ -66,7 +66,7 @@ export const ClaimLedger: React.FC<ClaimLedgerProps> = ({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Filter claims by keyword..."
-            className="w-full pl-8 pr-3 py-1.5 rounded bg-zinc-900 border border-zinc-800 text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-zinc-700"
+            className="w-full pl-8 pr-3 py-1.5 rounded bg-[#0f1117] border border-zinc-800 text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-zinc-600 font-sans"
           />
         </div>
 
@@ -80,8 +80,8 @@ export const ClaimLedger: React.FC<ClaimLedgerProps> = ({
                 onClick={() => setFilterVerdict(btn.id)}
                 className={`px-2 py-0.5 rounded text-[11px] font-medium transition flex items-center gap-1 border ${
                   isSelected
-                    ? 'bg-zinc-200 text-zinc-900 border-zinc-200 font-semibold'
-                    : 'bg-zinc-900/60 text-zinc-400 border-zinc-800 hover:text-zinc-200 hover:border-zinc-700'
+                    ? 'bg-zinc-200 text-zinc-900 border-zinc-200 font-semibold shadow-sm'
+                    : 'bg-[#0f1117] text-zinc-400 border-zinc-800 hover:text-zinc-200 hover:border-zinc-700'
                 }`}
               >
                 <span>{btn.label}</span>
@@ -97,7 +97,7 @@ export const ClaimLedger: React.FC<ClaimLedgerProps> = ({
       </div>
 
       {/* Claim Ledger List */}
-      <div className="flex-1 overflow-y-auto divide-y divide-zinc-800/60">
+      <div className="flex-1 overflow-y-auto divide-y divide-zinc-800/60 bg-[#0f1117]">
         {filteredClaims.length > 0 ? (
           filteredClaims.map((claim, idx) => {
             const isSelected = selectedClaimId === claim.claim_id;
@@ -108,14 +108,14 @@ export const ClaimLedger: React.FC<ClaimLedgerProps> = ({
                 onClick={() => onSelectClaim(claim.claim_id)}
                 className={`p-3.5 cursor-pointer transition flex flex-col gap-2 ${
                   isSelected
-                    ? 'bg-zinc-900/90 border-l-2 border-l-zinc-300'
-                    : 'hover:bg-zinc-900/40'
+                    ? 'bg-[#171a24] border-l-2 border-l-zinc-300'
+                    : 'hover:bg-[#13151d]'
                 }`}
               >
                 {/* Meta Row: Claim Index, Verdict, Badges */}
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
-                    <span className="font-mono text-[11px] text-zinc-500 font-semibold">
+                    <span className="font-mono text-[11px] text-zinc-400 font-semibold">
                       [{idx + 1}]
                     </span>
                     <VerdictBadge verdict={claim.verdict} size="sm" />
@@ -126,7 +126,7 @@ export const ClaimLedger: React.FC<ClaimLedgerProps> = ({
                     {(claim.conflict || claim.verdict === 'ambiguous') && (
                       <span
                         title="Inter-source conflict detected"
-                        className="p-1 rounded bg-amber-950/60 text-amber-300 border border-amber-800/60 flex items-center"
+                        className="p-1 rounded bg-purple-950/60 text-purple-300 border border-purple-800/60 flex items-center"
                       >
                         <GitFork className="w-3 h-3" />
                       </span>
@@ -142,14 +142,14 @@ export const ClaimLedger: React.FC<ClaimLedgerProps> = ({
                       </span>
                     )}
 
-                    <span className="font-mono text-[10px] text-zinc-500 bg-zinc-900 px-1.5 py-0.5 rounded border border-zinc-800">
+                    <span className="font-mono text-[10px] text-zinc-400 bg-zinc-900 px-1.5 py-0.5 rounded border border-zinc-800">
                       {Math.round(claim.confidence * 100)}%
                     </span>
                   </div>
                 </div>
 
                 {/* Claim Statement */}
-                <p className="font-serif text-xs text-zinc-200 leading-snug line-clamp-2">
+                <p className="font-sans text-xs text-zinc-200 leading-snug line-clamp-2">
                   &ldquo;{claim.claim_text}&rdquo;
                 </p>
 

@@ -18,7 +18,7 @@ export const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [selectedClaimId, setSelectedClaimId] = useState<string | null>(null);
   const [activeEvidenceId, setActiveEvidenceId] = useState<string | null>(null);
-  const [leftTab, setLeftTab] = useState<'claims' | 'document'>('claims');
+  const [leftTab, setLeftTab] = useState<'document' | 'claims'>('document');
   const [isSetupOpen, setIsSetupOpen] = useState<boolean>(false);
   const [isReportOpen, setIsReportOpen] = useState<boolean>(false);
   const [isAdversarialOpen, setIsAdversarialOpen] = useState<boolean>(false);
@@ -205,7 +205,7 @@ export const App: React.FC = () => {
     .map((c) => c.claim_id);
 
   return (
-    <div className="min-h-screen bg-[#101216] text-zinc-100 flex flex-col font-sans selection:bg-zinc-700 selection:text-white">
+    <div className="min-h-screen bg-[#0d0f14] text-zinc-100 flex flex-col font-sans selection:bg-zinc-700 selection:text-white">
       <Navbar
         health={health}
         onOpenSetup={() => setIsSetupOpen(true)}
@@ -213,6 +213,7 @@ export const App: React.FC = () => {
         onOpenReport={handleOpenReport}
         onOpenAdversarialLab={() => setIsAdversarialOpen(true)}
         hasCompletedAudit={hasResults}
+        auditTitle={audit.title}
       />
 
       <main className="max-w-[1720px] mx-auto px-4 sm:px-6 py-4 flex-1 w-full flex flex-col gap-3.5">
@@ -243,38 +244,40 @@ export const App: React.FC = () => {
             onSelectClaim={handleSelectClaim}
             contradictedClaimIds={contradictedClaimIds}
             conflictClaimIds={conflictClaimIds}
+            title={audit.title}
+            sourceCount={audit.sources.length}
           />
         )}
 
         {/* Clean 2-Panel Investigation Workspace */}
         {hasResults ? (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start flex-1 min-h-[660px]">
-            {/* Left Panel: Readable Claim List with Document Switcher (Col 5 / 42%) */}
-            <div className="lg:col-span-5 flex flex-col h-[660px] bg-[#14161d] border border-zinc-800/80 rounded-lg overflow-hidden">
+            {/* Left Panel: Submitted Answer Document with Segmented View Switcher (Col 5 / 42%) */}
+            <div className="lg:col-span-5 flex flex-col h-[660px] bg-[#12141a] border border-zinc-800/80 rounded-lg overflow-hidden">
               {/* Left Panel Segmented View Switcher */}
-              <div className="px-3.5 py-2.5 border-b border-zinc-800/80 bg-[#161821] flex items-center justify-between">
-                <div className="flex items-center gap-1 bg-[#101216] p-0.5 rounded border border-zinc-800">
-                  <button
-                    onClick={() => setLeftTab('claims')}
-                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium transition ${
-                      leftTab === 'claims'
-                        ? 'bg-zinc-800 text-zinc-100 font-semibold shadow-sm'
-                        : 'text-zinc-400 hover:text-zinc-200'
-                    }`}
-                  >
-                    <ListFilter className="w-3.5 h-3.5" />
-                    <span>Claims ({audit.claims.length})</span>
-                  </button>
+              <div className="px-3 py-2 border-b border-zinc-800/80 bg-[#14161f] flex items-center justify-between">
+                <div className="flex items-center gap-1 bg-[#0f1117] p-0.5 rounded border border-zinc-800">
                   <button
                     onClick={() => setLeftTab('document')}
                     className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium transition ${
                       leftTab === 'document'
-                        ? 'bg-zinc-800 text-zinc-100 font-semibold shadow-sm'
+                        ? 'bg-zinc-200 text-zinc-900 font-semibold shadow-sm'
                         : 'text-zinc-400 hover:text-zinc-200'
                     }`}
                   >
                     <FileText className="w-3.5 h-3.5" />
-                    <span>Document View</span>
+                    <span>Answer Document</span>
+                  </button>
+                  <button
+                    onClick={() => setLeftTab('claims')}
+                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium transition ${
+                      leftTab === 'claims'
+                        ? 'bg-zinc-200 text-zinc-900 font-semibold shadow-sm'
+                        : 'text-zinc-400 hover:text-zinc-200'
+                    }`}
+                  >
+                    <ListFilter className="w-3.5 h-3.5" />
+                    <span>Claims List ({audit.claims.length})</span>
                   </button>
                 </div>
 
@@ -285,15 +288,15 @@ export const App: React.FC = () => {
 
               {/* View Content */}
               <div className="flex-1 overflow-hidden">
-                {leftTab === 'claims' ? (
-                  <ClaimLedger
+                {leftTab === 'document' ? (
+                  <AnswerHighlighter
+                    originalAnswer={audit.original_answer}
                     claims={audit.claims}
                     selectedClaimId={selectedClaimId}
                     onSelectClaim={handleSelectClaim}
                   />
                 ) : (
-                  <AnswerHighlighter
-                    originalAnswer={audit.original_answer}
+                  <ClaimLedger
                     claims={audit.claims}
                     selectedClaimId={selectedClaimId}
                     onSelectClaim={handleSelectClaim}

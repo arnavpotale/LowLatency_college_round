@@ -4,25 +4,31 @@
 
 @layer base {
   body {
-    @apply bg-[#101216] text-zinc-100 font-sans antialiased;
+    @apply bg-[#0d0f14] text-zinc-100 font-sans antialiased selection:bg-zinc-700 selection:text-white;
+    color-scheme: dark;
+  }
+
+  /* Accessible focus ring style */
+  :focus-visible {
+    @apply outline-none ring-1 ring-zinc-400;
   }
 }
 
 /* Restrained Editorial Scrollbars */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #12141a;
+  background: #0f1117;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #272a33;
-  border-radius: 3px;
+  background: #232733;
+  border-radius: 2px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #3f4452;
+  background: #373d4d;
 }

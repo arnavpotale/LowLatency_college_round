@@ -88,10 +88,10 @@ export const VerdictTrailViewer: React.FC<VerdictTrailViewerProps> = ({
               <div
                 key={item.evidence_id || idx}
                 onClick={() => item.evidence_id && onSelectEvidence?.(item.evidence_id)}
-                className={`p-3 rounded-lg border transition text-xs space-y-2 cursor-pointer ${
+                className={`p-3.5 rounded-lg border transition text-xs space-y-2.5 cursor-pointer ${
                   isActive
-                    ? 'border-zinc-500 bg-zinc-900 ring-1 ring-zinc-500'
-                    : 'border-zinc-800 bg-zinc-950/80 hover:border-zinc-700'
+                    ? 'border-zinc-400 bg-[#171a24] ring-1 ring-zinc-400 shadow-sm'
+                    : 'border-zinc-800/80 bg-[#12141a] hover:border-zinc-700'
                 }`}
               >
                 {/* Meta row */}
@@ -122,7 +122,7 @@ export const VerdictTrailViewer: React.FC<VerdictTrailViewerProps> = ({
 
                 {/* Excerpt quote */}
                 {item.excerpt && (
-                  <p className="font-serif text-xs text-zinc-300 bg-zinc-900/60 p-2.5 rounded border border-zinc-800/80 italic leading-snug">
+                  <p className="font-sans text-xs text-zinc-200 bg-[#0a0c10] p-2.5 rounded border border-zinc-800/80 leading-relaxed">
                     &ldquo;{item.excerpt}&rdquo;
                   </p>
                 )}
@@ -156,12 +156,12 @@ export const VerdictTrailViewer: React.FC<VerdictTrailViewerProps> = ({
                             title={`Jump to Claim ${claimIdx + 1}: "${cc.claim_text.slice(0, 50)}..."`}
                             className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono transition ${
                               isCurrent
-                                ? 'bg-zinc-800 text-zinc-200 border border-zinc-600'
-                                : 'bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 border border-zinc-800'
+                                ? 'bg-zinc-800 text-zinc-100 border border-zinc-500 font-semibold shadow-sm'
+                                : 'bg-[#0f1117] hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 border border-zinc-800'
                             }`}
                           >
                             <span>Claim {claimIdx + 1}</span>
-                            <ArrowRight className="w-2.5 h-2.5 text-zinc-500" />
+                            <ArrowRight className="w-2.5 h-2.5 text-zinc-400" />
                           </button>
                         );
                       })}

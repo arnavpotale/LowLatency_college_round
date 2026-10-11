@@ -36,17 +36,17 @@ export const HumanReviewPanel: React.FC<HumanReviewPanelProps> = ({
   ];
 
   return (
-    <div className="rounded-lg border border-zinc-800 bg-zinc-950/80 p-4 space-y-3.5">
+    <div className="rounded-lg border border-zinc-800/80 bg-[#12141a] p-4 space-y-3.5">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-zinc-800 pb-2.5">
+      <div className="flex items-center justify-between border-b border-zinc-800/80 pb-2.5">
         <div className="flex items-center gap-2">
           <UserCheck className="w-4 h-4 text-zinc-400" />
-          <span className="text-xs font-semibold uppercase tracking-wider text-zinc-300">
+          <span className="text-xs font-semibold uppercase tracking-wider text-zinc-200">
             Auditor Review &amp; Override
           </span>
         </div>
         {existingReview && (
-          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-zinc-300">
+          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-zinc-300">
             Reviewed by {existingReview.reviewer}
           </span>
         )}
@@ -54,13 +54,13 @@ export const HumanReviewPanel: React.FC<HumanReviewPanelProps> = ({
 
       {/* Existing review banner if present */}
       {existingReview && (
-        <div className="p-2.5 rounded bg-zinc-900 border border-zinc-800 text-xs space-y-1">
+        <div className="p-2.5 rounded bg-[#0f1117] border border-zinc-800 text-xs space-y-1">
           <div className="flex items-center justify-between text-[11px] font-mono text-zinc-400">
             <span>Decision: <strong className="text-zinc-200">{existingReview.action.replace('_', ' ').toUpperCase()}</strong></span>
             <span>Original Machine: <strong className="text-zinc-200">{existingReview.original_verdict}</strong></span>
           </div>
           {existingReview.notes && (
-            <p className="text-zinc-300 text-[11px] italic">&ldquo;{existingReview.notes}&rdquo;</p>
+            <p className="text-zinc-300 text-[11px] italic font-sans">&ldquo;{existingReview.notes}&rdquo;</p>
           )}
         </div>
       )}
@@ -79,13 +79,13 @@ export const HumanReviewPanel: React.FC<HumanReviewPanelProps> = ({
                   type="button"
                   key={opt.id}
                   onClick={() => setSelectedAction(opt.id)}
-                  className={`p-2 rounded text-left border transition ${
+                  className={`p-2.5 rounded text-left border transition ${
                     isSelected
-                      ? 'bg-zinc-800 border-zinc-600 text-zinc-100 ring-1 ring-zinc-500'
-                      : 'bg-zinc-900/60 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700'
+                      ? 'bg-zinc-800 border-zinc-500 text-zinc-100 ring-1 ring-zinc-400 shadow-sm'
+                      : 'bg-[#0f1117] border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700'
                   }`}
                 >
-                  <div className="font-medium text-[11px] text-zinc-200">{opt.label}</div>
+                  <div className="font-semibold text-[11px] text-zinc-200">{opt.label}</div>
                   <div className="text-[10px] text-zinc-500 truncate">{opt.desc}</div>
                 </button>
               );
@@ -103,7 +103,7 @@ export const HumanReviewPanel: React.FC<HumanReviewPanelProps> = ({
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="e.g. Verified clinical appendix table 3 allows exception..."
-              className="w-full px-2.5 py-1.5 rounded bg-zinc-900 border border-zinc-800 text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-zinc-600 text-xs"
+              className="w-full px-2.5 py-1.5 rounded bg-[#0f1117] border border-zinc-800 text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-zinc-600 text-xs font-sans"
             />
           </div>
           <div>
@@ -115,7 +115,7 @@ export const HumanReviewPanel: React.FC<HumanReviewPanelProps> = ({
               value={reviewer}
               onChange={(e) => setReviewer(e.target.value)}
               placeholder="Reviewer ID"
-              className="w-full px-2.5 py-1.5 rounded bg-zinc-900 border border-zinc-800 text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-zinc-600 text-xs font-mono"
+              className="w-full px-2.5 py-1.5 rounded bg-[#0f1117] border border-zinc-800 text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-zinc-600 text-xs font-mono"
             />
           </div>
         </div>
@@ -127,17 +127,17 @@ export const HumanReviewPanel: React.FC<HumanReviewPanelProps> = ({
           <button
             type="submit"
             disabled={isLoading}
-            className="px-3 py-1.5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-medium text-xs border border-zinc-700 transition flex items-center gap-1.5 disabled:opacity-50"
+            className="px-3.5 py-1.5 rounded bg-zinc-200 hover:bg-white text-zinc-900 font-semibold text-xs transition flex items-center gap-1.5 disabled:opacity-50 shadow-sm"
           >
             {saveSuccess ? (
               <>
-                <Check className="w-3.5 h-3.5 text-emerald-400" />
+                <Check className="w-3.5 h-3.5 text-emerald-600" />
                 <span>Decision Saved</span>
               </>
             ) : (
               <>
-                <Shield className="w-3.5 h-3.5 text-zinc-400" />
-                <span>Record Auditor Decision</span>
+                <Shield className="w-3.5 h-3.5 text-zinc-900" />
+                <span>Save Review Decision</span>
               </>
             )}
           </button>
